@@ -1,8 +1,15 @@
 # Preparación de entorno
 Instalar entorno virtual (si ya esta creado se puede saltar este paso)
+Linux
 ```bash
 python3 -m venv venv
 ```
+
+Windows
+```bash
+python -m venv venv
+```
+
 Activar entorno virtual:
 Linux
 ```bash
