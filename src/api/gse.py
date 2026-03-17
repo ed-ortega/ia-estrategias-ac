@@ -2,8 +2,6 @@ from ..database import select
 from ..models.gse_ia_estrategias import HorarioVentaPublicoModel, ReglaHorarioSPDModel, ReglaSPSPDModel
 
 def get_horarios_venta_publico(id_cliente = 1):
-    id_cliente = 1
-
     query = """
         SELECT 
             c.nombre AS cliente,
