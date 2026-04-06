@@ -71,7 +71,7 @@ class GSEClient:
         self.expires_at = datetime.fromisoformat(
             data["expiresAt"].replace("Z", "+00:00")
         )
-
+        
         return data
 
 
@@ -124,6 +124,7 @@ class GSEClient:
         )
 
         r.raise_for_status()
+        
         return r.json()
     
     def clientes_regiones(self):
@@ -135,13 +136,15 @@ class GSEClient:
             "Accept": "application/json",
             "Authorization": f"Bearer {self.access_token}"
         }
+        try:
+            r = requests.get(url, headers=headers)
+            r.raise_for_status()
 
-        r = requests.get(url, headers=headers)
-        r.raise_for_status()
+            data = r.json()
 
-        data = r.json()
-        # si viene como [[...]]
-        if isinstance(data, list) and len(data) == 1 and isinstance(data[0], list):
             data = data[0]
 
-        return data
+            return data
+        except Exception as e: 
+            print(f"Error API: {e} - {datetime.now().strftime('%H:%M:%S')}")
+            return []

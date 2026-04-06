@@ -1,1 +1,3 @@
-grados trabajarlos en F
+ANIO_INICIO = 2025
+MES_INICIO = 11
+DIA_INICIO = 18
