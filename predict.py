@@ -128,13 +128,3 @@ if __name__ == "__main__":
     df_resultados.to_excel(salida, index=False)
 
     console.print(f"\n✅ Archivo generado: {salida}")
-
-    # resultado_final = {
-    #     "estado": estado,
-    #     "queja": queja,
-    #     "operacion": operacion,
-    #     "modelo": resultado_modelo
-    # }
-
-    # console.print("\nResultado HVAC:")
-    # console.print(json.dumps(resultado_final, indent=2, ensure_ascii=False, sort_keys=True))

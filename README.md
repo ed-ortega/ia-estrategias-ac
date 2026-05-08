@@ -45,3 +45,25 @@ zip -r proyecto_hvac.zip . \
 
 
 
+{
+            "idCliente": 160,
+            "nombre": "GSE - Seven Eleven",
+            "regiones": [
+                {
+                    "idRegion": 606,
+                    "nombre": "PACIFICO"
+                },
+                {
+                    "idRegion": 698,
+                    "nombre": "NUEVO LEÓN "
+                },
+                {
+                    "idRegion": 707,
+                    "nombre": "CENTRO-PENÍNSULA"
+                },
+                {
+                    "idRegion": 708,
+                    "nombre": "NORESTE"
+                }
+            ]
+        },

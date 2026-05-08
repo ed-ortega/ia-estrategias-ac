@@ -69,43 +69,28 @@ def _grupo(region: str | None) -> str:
 # ==============================
 # 📐 RANGOS VÁLIDOS POR REGIÓN
 # ==============================
-# limite_alto=True  → rangos más ajustados (ej. NL >15%)
-# limite_alto=False → rangos más amplios  (ej. NL <15%)
 RANGOS: dict[str, dict[bool, dict[str, tuple[int, int]]]] = {
     "NL": {
         True:  {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},
-        False: {"SP": (70, 74), "SPD01": (71, 78), "SPD02": (71, 77)},
+        False: {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},#{"SP": (70, 74), "SPD01": (71, 78), "SPD02": (71, 77)},
     },
     "Sureste": {
         True:  {"SP": (70, 72), "SPD01": (71, 76), "SPD02": (71, 75)},
-        False: {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},
+        False: {"SP": (70, 72), "SPD01": (71, 76), "SPD02": (71, 75)}, #{"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},
     },
     "BC": {
         True:  {"SP": (70, 74), "SPD01": (71, 77), "SPD02": (71, 76)},
-        False: {"SP": (70, 75), "SPD01": (71, 78), "SPD02": (71, 77)},
+        False: {"SP": (70, 74), "SPD01": (71, 77), "SPD02": (71, 76)}, #{"SP": (70, 75), "SPD01": (71, 78), "SPD02": (71, 77)},
     },
     "Metro": {
         True:  {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},
-        False: {"SP": (70, 74), "SPD01": (71, 78), "SPD02": (71, 77)},
+        False: {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)}, #{"SP": (70, 74), "SPD01": (71, 78), "SPD02": (71, 77)},
     },
 }
 
 # ==============================
 # 📋 UMBRALES OPERATIVOS
 # ==============================
-# Cada entrada define:
-#   queja_si/no  → {spd1, spd2} % mínimo para considerarse "alto"
-#   idoneo       → {spd1_min, spd1_max, spd2_min, spd2_max, sp_min}
-#   adj_alto_*   → ajuste cuando está en zona alta
-#   adj_idoneo   → ajuste cuando está en zona ideal (sin cambios)
-#   adj_bajo     → ajuste cuando está por debajo del rango
-#
-# Formato de ajuste por campo:
-#   None                  → Sin cambios (conservar predicción del modelo)
-#   ("zt_spd01", delta)   → TZ_SPD01 + delta
-#   ("zt_spd02", delta)   → TZ_SPD02 + delta
-#   ("zt_sp",    delta)   → TZ_SP    + delta
-#   ("fixed",    valor)   → valor fijo
 
 _K = None  # alias para "Sin cambios"
 
@@ -229,26 +214,33 @@ def normalizar_estado(nombre):
 
     return nombre
 
+CLIMA_DEFAULT = {
+    "temp_min": 72,
+    "temp_max": 88,
+    "temp_prom": 80,
+}
+
+
 def calcular_porcentajes_operacion(data: dict) -> dict:
 
     # =========================
-    # 🔵 TU LÓGICA ORIGINAL
+    # 🔵 OPERACIÓN
     # =========================
     h_spd1 = _horas_entre(
         data.get("horario_inicio_SPD_01", "00:00"),
-        data.get("horario_fin_SPD_01",   "00:00"),
+        data.get("horario_fin_SPD_01", "00:00"),
     )
+
     h_spd2 = _horas_entre(
         data.get("horario_inicio_SPD_02", "00:00"),
-        data.get("horario_fin_SPD_02",   "00:00"),
+        data.get("horario_fin_SPD_02", "00:00"),
     )
+
     h_sp = max(24.0 - h_spd1 - h_spd2, 0.0)
-    
-    
 
     y1_spd1 = float(data.get("Y1 SPD 01") or 0)
     y1_spd2 = float(data.get("Y1 SPD 02") or 0)
-    y1_sp   = float(data.get("Y1 SP")     or 0)
+    y1_sp   = float(data.get("Y1 SP") or 0)
 
     def pct(y, h):
         if not h:
@@ -256,90 +248,155 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
         return round(clamp_pct((y / h) * 100), 2)
 
     resultado = {
-        "SPD1": {"operacion_pct": pct(y1_spd1, h_spd1)},
-        "SPD2": {"operacion_pct": pct(y1_spd2, h_spd2)},
-        "SP":   {"operacion_pct": pct(y1_sp,   h_sp)},
+        "SPD1": {
+            "operacion_pct": pct(y1_spd1, h_spd1),
+            **CLIMA_DEFAULT
+        },
+        "SPD2": {
+            "operacion_pct": pct(y1_spd2, h_spd2),
+            **CLIMA_DEFAULT
+        },
+        "SP": {
+            "operacion_pct": pct(y1_sp, h_sp),
+            **CLIMA_DEFAULT
+        },
     }
 
     # =========================
-    # 🔴 CLIMA (AUTOMÁTICO)
+    # 🔴 CLIMA
     # =========================
     lat = data.get("Latitud")
     lon = data.get("Longitud")
 
-    if not lat or not lon:
+    # fallback por estado
+    if lat is None or lon is None:
         estado = normalizar_estado(data.get("Estado"))
         coords = ESTADOS_COORDS.get(estado)
+
         if coords:
-            lat, lon = coords["lat"], coords["lon"]
-    if lat and lon:
-        try:
-            url = (
-                f"https://api.open-meteo.com/v1/forecast"
-                f"?latitude={lat}&longitude={lon}"
-                f"&hourly=apparent_temperature"
-                f"&temperature_unit=fahrenheit"
-                f"&timezone=auto"
-            )
+            lat = coords["lat"]
+            lon = coords["lon"]
 
-            resp = requests.get(url, timeout=10)
-            
-            clima = resp.json()
+    try:
 
-            df = pd.DataFrame({
-                "time": clima["hourly"]["time"],
-                "at": clima["hourly"]["apparent_temperature"]
-            })
+        url = (
+            f"https://api.open-meteo.com/v1/forecast"
+            f"?latitude={lat}"
+            f"&longitude={lon}"
+            f"&hourly=apparent_temperature"
+            f"&temperature_unit=fahrenheit"
+            f"&timezone=auto"
+        )
 
-            df["time"] = pd.to_datetime(df["time"]).dt.tz_localize(None)
+        resp = requests.get(url, timeout=10)
 
-            # 👉 mañana basado en tu data
-            fechas = sorted(df["time"].dt.date.unique())
+        # validar status
+        resp.raise_for_status()
 
-            if len(fechas) >= 2:
-                mañana = fechas[1]
-            else:
-                mañana = fechas[0]  # fallback
+        clima = resp.json()
 
-            df = df[df["time"].dt.date == mañana]
+        # validar estructura
+        if (
+            "hourly" not in clima
+            or "time" not in clima["hourly"]
+            or "apparent_temperature" not in clima["hourly"]
+        ):
+            raise ValueError("Respuesta inválida de Open-Meteo")
 
-            def filtrar_periodo(inicio, fin):
-                h_ini = int(inicio.split(":")[0])
-                h_fin = int(fin.split(":")[0])
+        df = pd.DataFrame({
+            "time": clima["hourly"]["time"],
+            "at": clima["hourly"]["apparent_temperature"]
+        })
 
-                if h_ini <= h_fin:
-                    return df[(df["time"].dt.hour >= h_ini) & (df["time"].dt.hour <= h_fin)]
-                else:
-                    return df[(df["time"].dt.hour >= h_ini) | (df["time"].dt.hour <= h_fin)]
+        if df.empty:
+            return resultado
 
-            spd1_df = filtrar_periodo(
-                data.get("horario_inicio_SPD_01", "00:00"),
-                data.get("horario_fin_SPD_01",   "06:00"),
-            )
+        df["time"] = pd.to_datetime(df["time"]).dt.tz_localize(None)
 
-            spd2_df = filtrar_periodo(
-                data.get("horario_inicio_SPD_02", "20:00"),
-                data.get("horario_fin_SPD_02",   "23:59"),
-            )
+        # =========================
+        # 👉 MAÑANA
+        # =========================
+        fechas = sorted(df["time"].dt.date.unique())
 
-            horas_spd = set(spd1_df["time"].dt.hour.tolist() + spd2_df["time"].dt.hour.tolist())
-            sp_df = df[~df["time"].dt.hour.isin(horas_spd)]
+        if len(fechas) >= 2:
+            manana = fechas[1]
+        else:
+            manana = fechas[0]
 
-            def stats(df_):
-                if df_.empty:
-                    return {"temp_min": 0, "temp_max": 0, "temp_prom": 0}
-                return {
-                    "temp_min": round(df_["at"].min(), 2),
-                    "temp_max": round(df_["at"].max(), 2),
-                    "temp_prom": round(df_["at"].mean(), 2),
-                }
+        df = df[df["time"].dt.date == manana]
 
-            resultado["SPD1"].update(stats(spd1_df))
-            resultado["SPD2"].update(stats(spd2_df))
-            resultado["SP"].update(stats(sp_df))
+        if df.empty:
+            return resultado
 
-        except Exception as e:
-            console.print(f"[red]Error obteniendo clima: {e}[/red]")
+        # =========================
+        # PERIODOS
+        # =========================
+        def filtrar_periodo(inicio, fin):
+
+            h_ini = int(inicio.split(":")[0])
+            h_fin = int(fin.split(":")[0])
+
+            # horario normal
+            if h_ini <= h_fin:
+                return df[
+                    (df["time"].dt.hour >= h_ini)
+                    & (df["time"].dt.hour <= h_fin)
+                ]
+
+            # horario cruzando medianoche
+            return df[
+                (df["time"].dt.hour >= h_ini)
+                | (df["time"].dt.hour <= h_fin)
+            ]
+
+        spd1_df = filtrar_periodo(
+            data.get("horario_inicio_SPD_01", "00:00"),
+            data.get("horario_fin_SPD_01", "06:00"),
+        )
+
+        spd2_df = filtrar_periodo(
+            data.get("horario_inicio_SPD_02", "20:00"),
+            data.get("horario_fin_SPD_02", "23:59"),
+        )
+
+        horas_spd = set(
+            spd1_df["time"].dt.hour.tolist()
+            + spd2_df["time"].dt.hour.tolist()
+        )
+
+        sp_df = df[
+            ~df["time"].dt.hour.isin(horas_spd)
+        ]
+
+        # =========================
+        # STATS
+        # =========================
+        def stats(df_):
+
+            if df_.empty:
+                return CLIMA_DEFAULT.copy()
+
+            return {
+                "temp_min": round(df_["at"].min(), 2),
+                "temp_max": round(df_["at"].max(), 2),
+                "temp_prom": round(df_["at"].mean(), 2),
+            }
+
+        resultado["SPD1"].update(stats(spd1_df))
+        resultado["SPD2"].update(stats(spd2_df))
+        resultado["SP"].update(stats(sp_df))
+
+    except requests.Timeout:
+        console.print("[yellow]Timeout obteniendo clima[/yellow]")
+
+    except requests.ConnectionError:
+        console.print("[yellow]Sin conexión con Open-Meteo[/yellow]")
+
+    except requests.HTTPError as e:
+        console.print(f"[yellow]HTTP Error clima: {e}[/yellow]")
+
+    except Exception as e:
+        console.print(f"[red]Error obteniendo clima: {e}[/red]")
 
     return resultado
 
@@ -406,32 +463,30 @@ def _clip(valor: float, campo: str, grupo: str, limite_alto: bool) -> int:
 # ==============================
 def evaluar_estado(data: dict) -> str:
     """Ok / No enfria / Apagado / Sin control GSE / NA"""
-    if not data.get("CtrlGSE"):
+    if not data.get("CtrlGSE"): # 0, 0.0
         return "Sin control GSE"
+    
+    alerta_TI = data.get("AlertaTIdanado") or 0
+    TIY1 = data.get("TIY1")
+    Y1 = data.get("Y1") 
+
+    if not alerta_TI and alerta_TI == 1 and Y1 > 12:
+        return "TI Dañado"
 
     TC = data.get("TC")
 
     if TC > 0.5:
-        TIY1_SPD1 = data.get("TI Y1 SPD 01")
-        TIY1_SPD2= data.get("TI Y1 SPD 02")
-        TIY1_SP= data.get("TI Y1 SP")
+        if (TIY1 > 65 and alerta_TI == 0):
+            return "No enfria"
+        
+        if (
+            (TIY1 <= 65 and alerta_TI == 0) 
+            or
+            (TIY1 is None and Y1 <= 12)
+        ):
+            return "Ok"
 
-        TIY2_SPD1 = data.get("TI Y2 SPD 01")
-        TIY2_SPD2= data.get("TI Y2 SPD 02")
-        TIY2_SP= data.get("TI Y2 SP")
-
-        enfria = "Ok" if (
-            (TIY1_SPD1 and TIY1_SPD1 <= 65) or
-            (TIY1_SPD2 and TIY1_SPD2 <= 65) or
-            (TIY1_SP and TIY1_SP <= 65) or
-            (TIY2_SPD1 and TIY2_SPD1 <= 65) or
-            (TIY2_SPD2 and TIY2_SPD2 <= 65) or
-            (TIY2_SP and TIY2_SP <= 65)
-        ) else "No enfria"
-
-        return enfria
-
-    else: 
+    elif TC <= 0.5 and TIY1 > 65:
         return "Apagado"
 
 def evaluar_queja(data: dict) -> str:
@@ -461,7 +516,8 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     queja   = evaluar_queja(data)
 
     resultado = dict(prediccion)  # copia de la predicción normalizada
-    motivo    = "Sin ajuste"
+    SIN_AJUSTE = "Sin ajuste"
+    motivo    = SIN_AJUSTE
 
     # Porcentajes de operación
     try:
@@ -490,14 +546,14 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
             "SPD02": '',
             "BandaY1": '',
             "BandaY2": '',
-            "motivo": f"Clima: {clima} → reglas aún no implementadas"
+            "motivo": f"{SIN_AJUSTE}, clima: {clima} → reglas aún no implementadas"
         }
 
     # ------------------------------------------------------------------
     # CASO 1: Sin control GSE
     # ------------------------------------------------------------------
     if estatus == "Sin control GSE":
-        motivo = "Sin control GSE"
+        motivo = f"{SIN_AJUSTE}: Sin control GSE"
         return {
             **resultado,
             "SP":    '',
@@ -508,15 +564,15 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
             "motivo": motivo,
             **resultclima
         }
-
+    
     # ------------------------------------------------------------------
     # CASO 2: Apagado + TI alta
     # ------------------------------------------------------------------
     ti_spd1 = data.get("TI Y1 SPD 01") or data.get("TIY1") or 0
     ti_alta = ti_spd1 > 65 or alerta_ti
 
-    if estatus == "Apagado" and ti_alta:
-        motivo = f"Apagado + TI {'(alerta)' if alerta_ti else '>65°F'}"
+    if estatus == "Apagado":
+        motivo = f"{SIN_AJUSTE}: Apagado"
         return {
             **resultado,
             "SP":    '',
@@ -533,8 +589,16 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     # ------------------------------------------------------------------
     # Solo aplica si CambiosSP < 8
     if cambios_sp >= 8:
-        motivo = f"CambiosSP={cambios_sp} ≥ 8 → sin ajuste automático"
-        return {**resultado, "motivo": motivo, **resultclima}
+        motivo = f"{SIN_AJUSTE}: CambiosSP={cambios_sp} ≥ 8 → sin ajuste automático"
+        return {
+            **resultado, 
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo, 
+            **resultclima}
 
     # Determinar rama de umbrales
     rama_estatus = "Ok_TI_baja" if not ti_alta else "No_enfria_TI_alta"
@@ -551,12 +615,13 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     idoneo        = umbrales["idoneo"]
 
     # Clasificar zona operativa
+    # TZ > limite 
     if pct_spd1 > thresh_alto["spd1"] or pct_spd2 > thresh_alto["spd2"]:
         adj_key   = f"adj_alto_{('si' if queja == 'Si' else 'no')}"
         motivo    = (
-            f"TI={'alta' if ti_alta else 'baja'} | "
-            f"Op SPD1={pct_spd1:.0f}% SPD2={pct_spd2:.0f}% → operación intensa"
+            f"Disminuye SP por estrategía"
         )
+    # SIN MODIFICACION
     elif (
         idoneo["spd1_min"] <= pct_spd1 <= idoneo["spd1_max"]
         or idoneo["spd2_min"] <= pct_spd2 <= idoneo["spd2_max"]
@@ -564,14 +629,24 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     ):
         adj_key   = "adj_idoneo"
         motivo    = (
-            f"TI={'alta' if ti_alta else 'baja'} | "
-            f"Op SPD1={pct_spd1:.0f}% SPD2={pct_spd2:.0f}% → operación equilibrada"
+            f"{SIN_AJUSTE}: Caso idoneo"
         )
+
+        return {
+            **resultado, 
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo, 
+            **resultclima
+        }
+    
     else:
         adj_key   = "adj_bajo"
         motivo    = (
-            f"TI={'alta' if ti_alta else 'baja'} | "
-            f"Op SPD1={pct_spd1:.0f}% SPD2={pct_spd2:.0f}% → baja capacidad utilizada"
+            f"Aumenta SP por estrategía"
         )
 
     adj = umbrales[adj_key]
