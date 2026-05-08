@@ -79,7 +79,6 @@ def worker(query):
 
     # 🌐 API
     data = fetch_weather(float(lat), float(lon), fecha)
-    print(f"🌐 Llamada a API: {float(lat)}, {float(lon)}, {fecha}")
 
     if data:
         cache.set(key, data)

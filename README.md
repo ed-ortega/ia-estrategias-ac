@@ -31,3 +31,17 @@ pip install -r requirements.txt
 pip freeze > requirements.txt
 ```
 
+# Comprimir proyecto
+```bash
+zip -r proyecto_hvac.zip . \
+-x "venv/*" \
+-x "db/*" \
+-x "*/__pycache__/*" \
+-x "*.pyc" \
+-x "*.pyo" \
+-x ".git/*" \
+-x ".DS_Store"
+```
+
+
+

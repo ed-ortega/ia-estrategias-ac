@@ -1,8 +1,11 @@
+from rich.console import Console
 from datetime import timedelta, datetime
 import numpy as np
 import pandas as pd
-from ...api.openmateo import cargar_temperatura
+#from ...api.openmateo import cargar_temperatura
 #from ...api.meteostat_api import cargar_temperatura
+
+console = Console()
 
 def dividir_en_bloques(inicio, fin, dias=7):
     bloques = []
@@ -19,7 +22,7 @@ def tiene_decimales(x: float) -> bool:
 def procesar(gse, cliente_id, region, inicio, fin):
     idRegion = region["idRegion"]
     nombre = region["nombre"]
-    print(inicio, fin)
+    console.print(f"region: {region}, Fecha inicio: {inicio}, fecha fin: {fin}")
     try:
         data = gse.hvac_valores(
             cliente_id,
@@ -40,16 +43,6 @@ def procesar(gse, cliente_id, region, inicio, fin):
         if str(e.get("Tecnología", "")).lower() == "sensibo":
             continue
 
-        sp, spd01, spd03 = e.get("SP"), e.get("SPD01"), e.get("SPD03")
-
-        if spd01 is not None and spd03 is not None:
-            irregular = spd01 <= spd03
-        else:
-            irregular = False
-
-        SP_decimal = tiene_decimales(sp) if sp is not None else False
-        SPD_03_decimal = tiene_decimales(spd03) if spd03 is not None else False
-
         registro = {
             "Idvbox": e.get("idVbox"),
             "CC": e.get("CC"),
@@ -67,6 +60,7 @@ def procesar(gse, cliente_id, region, inicio, fin):
             "TIY2": e.get("TIY2"),
             "Y1": e.get("Y1"),
             "Y2": e.get("Y2"),
+            "TC" : e.get("TC"),
             "BandaY1": e.get("BandaY1"),
             "BandaY2": e.get("BandaY2"),
             "SP": e.get("SP"),
@@ -77,15 +71,12 @@ def procesar(gse, cliente_id, region, inicio, fin):
             "horario_fin_SPD_01": e.get("horario_fin_SPD_01"),
             "horario_inicio_SPD_02": e.get("horario_inicio_SPD_02"),
             "horario_fin_SPD_02": e.get("horario_fin_SPD_02"),
-            "irregular": irregular,
-            "SP_decimal": SP_decimal,
-            "SPD03_decimal": SPD_03_decimal
         }
 
         registros.append(registro)
 
-    registros = cargar_temperatura(registros)
-
+    #registros = cargar_temperatura(registros)
+    
     return registros
 
 def hora_a_ciclico(h):
