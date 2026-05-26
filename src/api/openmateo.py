@@ -1,178 +1,175 @@
-import pandas as pd
-import numpy as np
-import requests
-import time
+from dotenv import load_dotenv
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import pickle
+import time
+import requests
+import pandas as pd
+import os
 
-# =========================
-# ⚙️ CONFIG
-# =========================
-CACHE_FILE = Path("src/data/cache_openmeteo.pkl")
-MAX_WORKERS = 4
-REQUEST_DELAY = 0.2
-ROUND_DECIMALS = 2
+load_dotenv()
 
-session = requests.Session()
+# ====================================
+# CONFIG
+# ====================================
+CACHE_FILE = Path("src/data/cache_clima.pkl")
 
-# =========================
-# 🧊 CACHE INSTANCE GLOBAL
-# =========================
-from ..persistentLRUCache import PersistentLRUCache
+CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-cache = PersistentLRUCache(CACHE_FILE, max_size=20000)
+CACHE_TTL = 60 * 60  # 1 hora
 
+WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
-# =========================
-# 🔧 NORMALIZACIÓN SEGURA
-# =========================
-def norm(x):
-    return f"{float(x):.{ROUND_DECIMALS}f}"
+# ====================================
+# LOAD CACHE
+# ====================================
+if CACHE_FILE.exists():
 
+    try:
 
-# =========================
-# 🌐 FETCH API
-# =========================
-def fetch_weather(lat, lon, fecha_str, retries=3):
+        with open(CACHE_FILE, "rb") as f:
+            CLIMA_CACHE = pickle.load(f)
+
+    except Exception:
+
+        CLIMA_CACHE = {}
+
+else:
+
+    CLIMA_CACHE = {}
+
+# ====================================
+# SAVE CACHE
+# ====================================
+def guardar_cache():
+
+    with open(CACHE_FILE, "wb") as f:
+        pickle.dump(CLIMA_CACHE, f)
+
+# ====================================
+# PROVIDERS
+# ====================================
+def obtener_clima_openmeteo(lat, lon):
+
     url = (
-        "https://archive-api.open-meteo.com/v1/archive?"
-        f"latitude={lat}&longitude={lon}"
-        f"&start_date={fecha_str}&end_date={fecha_str}"
-        "&daily=temperature_2m_max,temperature_2m_min"
-        "&timezone=auto"
+        f"https://api.open-meteo.com/v1/forecast"
+        f"?latitude={lat}"
+        f"&longitude={lon}"
+        f"&hourly=apparent_temperature"
+        f"&temperature_unit=fahrenheit"
+        f"&timezone=auto"
     )
 
-    for attempt in range(retries):
-        try:
-            res = session.get(url, timeout=10)
+    resp = requests.get(url, timeout=10)
 
-            if res.status_code == 200:
-                data = res.json()
+    resp.raise_for_status()
 
-                if "daily" not in data:
-                    return None
-
-                return {
-                    "tmax": data["daily"]["temperature_2m_max"][0],
-                    "tmin": data["daily"]["temperature_2m_min"][0]
-                }
-
-            time.sleep(1.5 * (attempt + 1))
-
-        except Exception:
-            time.sleep(1.5 * (attempt + 1))
-
-    return None
+    return resp.json()
 
 
-# =========================
-# ⚡ WORKER
-# =========================
-def worker(query):
-    lat, lon, fecha = query
-    key = (lat, lon, fecha)
+def obtener_clima_weatherapi(lat, lon):
 
-    # 🔍 CACHE HIT
-    cached = cache.get(key)
-    if cached:
-        return key, cached, True
-
-    # 🌐 API
-    data = fetch_weather(float(lat), float(lon), fecha)
-
-    if data:
-        cache.set(key, data)
-        return key, data, False
-
-    return key, None, False
-
-
-# =========================
-# 🚀 PIPELINE
-# =========================
-def cargar_temperatura(registros):
-
-    df = pd.DataFrame(registros)
-
-    if df.empty:
-        return registros
-
-    print("📊 Total registros:", len(df))
-
-    df["Latitud"] = pd.to_numeric(df["Latitud"], errors="coerce")
-    df["Longitud"] = pd.to_numeric(df["Longitud"], errors="coerce")
-    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
-
-    df = df.dropna(subset=["Latitud", "Longitud", "Fecha"])
-
-    print("✅ Registros válidos:", len(df))
-
-    # 🔥 NORMALIZACIÓN CONSISTENTE
-    df["_lat"] = df["Latitud"].apply(norm)
-    df["_lon"] = df["Longitud"].apply(norm)
-    df["_fecha"] = df["Fecha"].dt.strftime("%Y-%m-%d")
-
-    queries = (
-        df[["_lat", "_lon", "_fecha"]]
-        .drop_duplicates()
-        .to_records(index=False)
+    url = (
+        f"https://api.weatherapi.com/v1/forecast.json"
+        f"?key={WEATHER_API_KEY}"
+        f"&q={lat},{lon}"
+        f"&days=1"
     )
 
-    queries = [(q[0], q[1], q[2]) for q in queries]
+    resp = requests.get(url, timeout=10)
 
-    print(f"🌐 Consultas únicas: {len(queries)}")
+    resp.raise_for_status()
 
-    results = {}
-    hits = 0
+    data = resp.json()
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = []
+    # ====================================
+    # TRANSFORMAR A FORMATO OPENMETEO
+    # ====================================
+    horas = []
+    temperaturas = []
 
-        for q in queries:
-            futures.append(executor.submit(worker, q))
-            time.sleep(REQUEST_DELAY)
+    forecast_hours = data["forecast"]["forecastday"][0]["hour"]
 
-        for f in as_completed(futures):
-            key, data, from_cache = f.result()
+    for hour_data in forecast_hours:
 
-            if from_cache:
-                hits += 1
+        horas.append(hour_data["time"])
 
-            if data:
-                results[key] = data
+        temperaturas.append(hour_data["feelslike_f"])
 
-    print(f"🧠 Cache hit: {hits}/{len(queries)}")
-
-    # =========================
-    # 🔗 RECONSTRUCCIÓN
-    # =========================
-    clima_df = pd.DataFrame([
-        {
-            "_lat": k[0],
-            "_lon": k[1],
-            "_fecha": k[2],
-            "TE Maxima": v["tmax"],
-            "TE Minima": v["tmin"]
+    clima = {
+        "hourly": {
+            "time": horas,
+            "apparent_temperature": temperaturas
         }
-        for k, v in results.items()
-    ])
+    }
 
-    if clima_df.empty:
-        df["TE Maxima"] = np.nan
-        df["TE Minima"] = np.nan
-        return df.to_dict("records")
+    return clima
 
-    df = df.merge(
-        clima_df,
-        on=["_lat", "_lon", "_fecha"],
-        how="left"
+# ====================================
+# GET CLIMA
+# ====================================
+def obtener_clima(
+    lat,
+    lon,
+    provider="openmeteo"
+):
+
+    cache_key = (
+        f"{provider}_"
+        f"{round(lat, 2)}_"
+        f"{round(lon, 2)}"
     )
 
-    return df.to_dict("records")
+    ahora = time.time()
 
+    # ====================================
+    # CACHE HIT
+    # ====================================
+    if cache_key in CLIMA_CACHE:
 
-# =========================
-# 💾 GUARDADO FINAL
-# =========================
-def cerrar_cache():
-    cache.save()
+        cache_data = CLIMA_CACHE[cache_key]
+
+        if ahora - cache_data["timestamp"] < CACHE_TTL:
+
+            print(f"CACHE HIT -> {provider}")
+
+            return cache_data["data"]
+
+    # ====================================
+    # PROVIDERS
+    # ====================================
+    if provider == "openmeteo":
+
+        clima = obtener_clima_openmeteo(
+            lat,
+            lon
+        )
+
+    elif provider == "weatherapi":
+
+        clima = obtener_clima_weatherapi(
+            lat,
+            lon
+        )
+
+    else:
+
+        raise ValueError(
+            f"Provider no soportado: {provider}"
+        )
+
+    # ====================================
+    # SAVE CACHE MEMORY
+    # ====================================
+    CLIMA_CACHE[cache_key] = {
+        "timestamp": ahora,
+        "data": clima
+    }
+
+    # ====================================
+    # SAVE CACHE FILE
+    # ====================================
+    guardar_cache()
+
+    print(f"API REQUEST -> {provider}")
+
+    return clima

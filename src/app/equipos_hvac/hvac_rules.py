@@ -1,17 +1,11 @@
-"""
-Motor de reglas HVAC basado en estrategias del Excel.
-
-Flujo:
-    1. modelo predice SP/SPD01/SPD02 normalizados (qué deberían ser)
-    2. aplicar_reglas_hvac() ajusta esos valores según condiciones operativas
-"""
-
-
+import math
+from ...api.openmateo import obtener_clima
 from datetime import datetime, timedelta
 from rich.console import Console
 import pandas as pd
 import requests
 import unicodedata
+from .templado import clima_templado
 
 console = Console()
 
@@ -58,124 +52,11 @@ REGION_A_GRUPO: dict[str, str] = {
     "edomex":           "Metro",
 }
 
-
 def _grupo(region: str | None) -> str:
     """Normaliza la región al grupo correspondiente. Default: NL."""
     if not region:
         return "NL"
     return REGION_A_GRUPO.get(region.lower().strip(), "NL")
-
-
-# ==============================
-# 📐 RANGOS VÁLIDOS POR REGIÓN
-# ==============================
-RANGOS: dict[str, dict[bool, dict[str, tuple[int, int]]]] = {
-    "NL": {
-        True:  {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},
-        False: {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},#{"SP": (70, 74), "SPD01": (71, 78), "SPD02": (71, 77)},
-    },
-    "Sureste": {
-        True:  {"SP": (70, 72), "SPD01": (71, 76), "SPD02": (71, 75)},
-        False: {"SP": (70, 72), "SPD01": (71, 76), "SPD02": (71, 75)}, #{"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},
-    },
-    "BC": {
-        True:  {"SP": (70, 74), "SPD01": (71, 77), "SPD02": (71, 76)},
-        False: {"SP": (70, 74), "SPD01": (71, 77), "SPD02": (71, 76)}, #{"SP": (70, 75), "SPD01": (71, 78), "SPD02": (71, 77)},
-    },
-    "Metro": {
-        True:  {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)},
-        False: {"SP": (70, 73), "SPD01": (71, 77), "SPD02": (71, 76)}, #{"SP": (70, 74), "SPD01": (71, 78), "SPD02": (71, 77)},
-    },
-}
-
-# ==============================
-# 📋 UMBRALES OPERATIVOS
-# ==============================
-
-_K = None  # alias para "Sin cambios"
-
-UMBRALES: dict[str, dict[str, dict]] = {
-    "NL": {
-        "Ok_TI_baja": {
-            "queja_si":  {"spd1": 70, "spd2": 85},
-            "queja_no":  {"spd1": 70, "spd2": 85},
-            "idoneo":    {"spd1_min": 30, "spd1_max": 70, "spd2_min": 45, "spd2_max": 85, "sp_min": 60},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": _K},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": ("zt_spd02", +0.5)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -1.0), "SPD02": ("zt_spd02", -1.0)},
-        },
-        "No_enfria_TI_alta": {
-            "queja_si":  {"spd1": 50, "spd2": 70},
-            "queja_no":  {"spd1": 50, "spd2": 70},
-            "idoneo":    {"spd1_min": 30, "spd1_max": 50, "spd2_min": 45, "spd2_max": 70, "sp_min": 60},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -0.5), "SPD02": ("zt_spd02", -0.5)},
-        },
-    },
-    "Sureste": {
-        "Ok_TI_baja": {
-            "queja_si":  {"spd1": 80, "spd2": 90},
-            "queja_no":  {"spd1": 80, "spd2": 90},
-            "idoneo":    {"spd1_min": 50, "spd1_max": 80, "spd2_min": 60, "spd2_max": 90, "sp_min": 70},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": _K},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": ("zt_spd02", +0.5)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -1.0), "SPD02": ("zt_spd02", -1.0)},
-        },
-        "No_enfria_TI_alta": {
-            "queja_si":  {"spd1": 70, "spd2": 90},
-            "queja_no":  {"spd1": 60, "spd2": 70},
-            "idoneo":    {"spd1_min": 50, "spd1_max": 60, "spd2_min": 60, "spd2_max": 70, "sp_min": 70},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -0.5), "SPD02": ("zt_spd02", -0.5)},
-        },
-    },
-    "BC": {
-        "Ok_TI_baja": {
-            "queja_si":  {"spd1": 50, "spd2": 60},
-            "queja_no":  {"spd1": 40, "spd2": 50},
-            "idoneo":    {"spd1_min": 10, "spd1_max": 40, "spd2_min": 20, "spd2_max": 50, "sp_min": 30},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": _K},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": ("zt_spd02", +0.5)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -1.0), "SPD02": ("zt_spd02", -1.0)},
-        },
-        "No_enfria_TI_alta": {
-            "queja_si":  {"spd1": 50, "spd2": 60},
-            "queja_no":  {"spd1": 40, "spd2": 50},
-            "idoneo":    {"spd1_min": 10, "spd1_max": 40, "spd2_min": 20, "spd2_max": 50, "sp_min": 30},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -0.5), "SPD02": ("zt_spd02", -0.5)},
-        },
-    },
-    "Metro": {
-        "Ok_TI_baja": {
-            "queja_si":  {"spd1": 60, "spd2": 70},
-            "queja_no":  {"spd1": 50, "spd2": 60},
-            "idoneo":    {"spd1_min": 30, "spd1_max": 50, "spd2_min": 40, "spd2_max": 60, "sp_min": 50},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": _K},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +0.5), "SPD02": ("zt_spd02", +0.5)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -1.0), "SPD02": ("zt_spd02", -1.0)},
-        },
-        "No_enfria_TI_alta": {
-            "queja_si":  {"spd1": 60, "spd2": 70},
-            "queja_no":  {"spd1": 50, "spd2": 60},
-            "idoneo":    {"spd1_min": 30, "spd1_max": 50, "spd2_min": 40, "spd2_max": 60, "sp_min": 50},
-            "adj_alto_si":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_alto_no":  {"SP": _K,   "SPD01": ("zt_spd01", +1.0), "SPD02": ("zt_spd02", +1.0)},
-            "adj_idoneo":   {"SP": _K,   "SPD01": _K,                 "SPD02": _K},
-            "adj_bajo":     {"SP": ("zt_sp", -1.0), "SPD01": ("zt_spd01", -0.5), "SPD02": ("zt_spd02", -0.5)},
-        },
-    },
-}
 
 # ==============================
 # 🕐 UTILIDADES HORARIAS
@@ -265,11 +146,18 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
     # =========================
     # 🔴 CLIMA
     # =========================
+    def is_invalid(value):
+        return (
+            value is None
+            or (isinstance(value, float) and math.isnan(value))
+        )
+
+    
     lat = data.get("Latitud")
     lon = data.get("Longitud")
 
     # fallback por estado
-    if lat is None or lon is None:
+    if is_invalid(lat) or is_invalid(lon):
         estado = normalizar_estado(data.get("Estado"))
         coords = ESTADOS_COORDS.get(estado)
 
@@ -279,21 +167,7 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
 
     try:
 
-        url = (
-            f"https://api.open-meteo.com/v1/forecast"
-            f"?latitude={lat}"
-            f"&longitude={lon}"
-            f"&hourly=apparent_temperature"
-            f"&temperature_unit=fahrenheit"
-            f"&timezone=auto"
-        )
-
-        resp = requests.get(url, timeout=10)
-
-        # validar status
-        resp.raise_for_status()
-
-        clima = resp.json()
+        clima = obtener_clima(lat, lon, provider="weatherapi")
 
         # validar estructura
         if (
@@ -409,85 +283,91 @@ def clasificar_clima(temp_f):
         return "Frio"
 
 # ==============================
-# 🔧 APLICAR AJUSTE INDIVIDUAL
-# ==============================
-def _resolver_adj(
-    campo:     str,
-    instruccion,
-    data:      dict,
-    prediccion: dict,
-) -> float:
-    """
-    Resuelve una instrucción de ajuste para un campo (SP, SPD01, SPD02).
-
-    Instrucciones:
-        None              → conservar predicción del modelo
-        ("zt_spd01", d)   → TZ_SPD01 + d
-        ("zt_spd02", d)   → TZ_SPD02 + d
-        ("zt_sp",    d)   → TZ_SP    + d
-        ("fixed",    v)   → valor fijo v
-    """
-    if instruccion is None:
-        return float(prediccion[campo])
-
-    tipo, valor = instruccion
-
-    if tipo == "zt_spd01":
-        tz = data.get("TZ SPD 01") or data.get("TZ") or prediccion[campo]
-        return float(tz) + valor
-
-    if tipo == "zt_spd02":
-        tz = data.get("TZ SPD 02") or data.get("TZ") or prediccion[campo]
-        return float(tz) + valor
-
-    if tipo == "zt_sp":
-        tz = data.get("TZ SP") or data.get("TZ") or prediccion[campo]
-        return float(tz) + valor
-
-    if tipo == "fixed":
-        return float(valor)
-
-    return float(prediccion[campo])
-
-# ==============================
-# 🔒 CLIPPING A RANGO VÁLIDO
-# ==============================
-def _clip(valor: float, campo: str, grupo: str, limite_alto: bool) -> int:
-    rangos = RANGOS.get(grupo, RANGOS["NL"]).get(limite_alto, RANGOS["NL"][True])
-    min_v, max_v = rangos.get(campo, (70, 77))
-    return int(round(max(min_v, min(max_v, valor))))
-
-
-# ==============================
 # 🧠 EVALUADORES
 # ==============================
+def es_vacio(valor):
+
+    return (
+        valor is None
+        or pd.isna(valor)
+        or valor == 0
+    )
+
 def evaluar_estado(data: dict) -> str:
-    """Ok / No enfria / Apagado / Sin control GSE / NA"""
-    if not data.get("CtrlGSE"): # 0, 0.0
-        return "Sin control GSE"
-    
+    """
+    Estados:
+    - Sin control GSE
+    - TI Dañado
+    - Apagado
+    - No enfria
+    - Ok
+    """
+
+    CtrlGSE = data.get("CtrlGSE")
     alerta_TI = data.get("AlertaTIdanado") or 0
     TIY1 = data.get("TIY1")
-    Y1 = data.get("Y1") 
+    TIY2 = data.get("TIY2")
+    Y1 = data.get("Y1")
+    TC = data.get("TC")
+    TZ = data.get("TZ")
+    tecnologia = data.get("Tecnología")
 
-    if not alerta_TI and alerta_TI == 1 and Y1 > 12:
+    # 1. Sin control GSE
+    if not CtrlGSE:
+        return "Sin control GSE"
+
+    if (
+        (es_vacio(TZ) and es_vacio(TIY1) and es_vacio(Y1))
+        or
+        (es_vacio(TZ) and es_vacio(TIY2) and es_vacio(Y1))
+    ):
+        return "Offline"
+
+    # 2. TI Dañado
+    #if (es_vacio(TIY1) and alerta_TI == 1 and Y1 > 12):
+    if alerta_TI == 1 or (es_vacio(TIY1) and Y1 > 12):
         return "TI Dañado"
 
-    TC = data.get("TC")
-
-    if TC > 0.5:
-        if (TIY1 > 65 and alerta_TI == 0):
-            return "No enfria"
-        
+    # 3. Apagado
+    if tecnologia != "venstar":
         if (
-            (TIY1 <= 65 and alerta_TI == 0) 
-            or
-            (TIY1 is None and Y1 <= 12)
+            TC < 0.5
+            and TIY1 > 65
+            and alerta_TI == 0
+        ):
+            return "Apagado"
+    else:
+        if (
+            TIY1 > 65
+            and alerta_TI == 0
+        ):
+            return "Apagado"
+
+    # 4. No enfria
+    if (
+        TC > 0.5
+        and TIY1 > 65
+        and alerta_TI == 0
+    ):
+        return "No enfria"
+
+    if tecnologia != "venstar":
+        # 5. Ok
+        if (
+            TC > 0.5
+            and TIY1 <= 65
+            and alerta_TI == 0
+        ):
+            return "Ok"
+    else:
+        # 6. Ok cuando TIY1 viene vacío
+        if (
+            es_vacio(TIY1)
+            and Y1 <= 12
         ):
             return "Ok"
 
-    elif TC <= 0.5 and TIY1 > 65:
-        return "Apagado"
+    return "Ok"
 
 def evaluar_queja(data: dict) -> str:
     """Si / No / NA"""
@@ -531,6 +411,55 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
 
     temp_ref = pct["SP"].get("temp_prom", 0)
 
+
+    if estatus == "Sin control GSE":
+        motivo = f"{SIN_AJUSTE}: Sin control GSE"
+        return {
+            **resultado,
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo,
+        }
+
+    if estatus == "Apagado":
+        motivo = f"{SIN_AJUSTE}: Apagado"
+        return {
+            **resultado,
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo,
+        }
+
+    if estatus == "Offline":
+        motivo = f"{SIN_AJUSTE}: Offline"
+        return {
+            **resultado,
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo,
+        }
+
+    if cambios_sp >= 8:
+        motivo = f"{SIN_AJUSTE}: CambiosSP={cambios_sp} ≥ 8 → sin ajuste automático"
+        return {
+            **resultado, 
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo, 
+        }
+
     clima = clasificar_clima(temp_ref)
 
     resultclima = {
@@ -549,113 +478,15 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
             "motivo": f"{SIN_AJUSTE}, clima: {clima} → reglas aún no implementadas"
         }
 
-    # ------------------------------------------------------------------
-    # CASO 1: Sin control GSE
-    # ------------------------------------------------------------------
-    if estatus == "Sin control GSE":
-        motivo = f"{SIN_AJUSTE}: Sin control GSE"
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo,
-            **resultclima
-        }
-    
-    # ------------------------------------------------------------------
-    # CASO 2: Apagado + TI alta
-    # ------------------------------------------------------------------
-    ti_spd1 = data.get("TI Y1 SPD 01") or data.get("TIY1") or 0
-    ti_alta = ti_spd1 > 65 or alerta_ti
-
-    if estatus == "Apagado":
-        motivo = f"{SIN_AJUSTE}: Apagado"
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo,
-            **resultclima
-        }
-
-    # ------------------------------------------------------------------
-    # CASO 3: Reglas operativas (Ok / No enfria)
-    # ------------------------------------------------------------------
-    # Solo aplica si CambiosSP < 8
-    if cambios_sp >= 8:
-        motivo = f"{SIN_AJUSTE}: CambiosSP={cambios_sp} ≥ 8 → sin ajuste automático"
-        return {
-            **resultado, 
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo, 
-            **resultclima}
-
-    # Determinar rama de umbrales
-    rama_estatus = "Ok_TI_baja" if not ti_alta else "No_enfria_TI_alta"
-    umbrales_grupo = UMBRALES.get(grupo, UMBRALES["NL"])
-    umbrales       = umbrales_grupo.get(rama_estatus, umbrales_grupo["Ok_TI_baja"])
-
-    pct_spd1 = pct["SPD1"]["operacion_pct"]
-    pct_spd2 = pct["SPD2"]["operacion_pct"]
-    pct_sp   = pct["SP"]["operacion_pct"]
-
-    # Umbral "alto" según queja
-    q_key         = "queja_si" if queja == "Si" else "queja_no"
-    thresh_alto   = umbrales[q_key]
-    idoneo        = umbrales["idoneo"]
-
-    # Clasificar zona operativa
-    # TZ > limite 
-    if pct_spd1 > thresh_alto["spd1"] or pct_spd2 > thresh_alto["spd2"]:
-        adj_key   = f"adj_alto_{('si' if queja == 'Si' else 'no')}"
-        motivo    = (
-            f"Disminuye SP por estrategía"
+    if clima == "Templado":
+        clima_templado(
+            data=data, 
+            alerta_ti=alerta_ti, 
+            pct=pct, 
+            queja=queja, 
+            grupo=grupo,
+            limite_alto=limite_alto,
+            prediccion=prediccion,
+            resultado=resultado, 
+            resultclima=resultclima
         )
-    # SIN MODIFICACION
-    elif (
-        idoneo["spd1_min"] <= pct_spd1 <= idoneo["spd1_max"]
-        or idoneo["spd2_min"] <= pct_spd2 <= idoneo["spd2_max"]
-        or pct_sp >= idoneo["sp_min"]
-    ):
-        adj_key   = "adj_idoneo"
-        motivo    = (
-            f"{SIN_AJUSTE}: Caso idoneo"
-        )
-
-        return {
-            **resultado, 
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo, 
-            **resultclima
-        }
-    
-    else:
-        adj_key   = "adj_bajo"
-        motivo    = (
-            f"Aumenta SP por estrategía"
-        )
-
-    adj = umbrales[adj_key]
-
-    # Aplicar ajustes y clipping
-    for campo in ("SP", "SPD01", "SPD02"):
-        valor_raw  = _resolver_adj(campo, adj[campo], data, prediccion)
-        resultado[campo] = _clip(valor_raw, campo, grupo, limite_alto)
-
-    resultado["motivo"] = motivo
-
-    return {**resultado, **resultclima}
