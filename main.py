@@ -13,6 +13,7 @@ def completar_prompt(data):
         "CiclosY1": 0,
         "CiclosY2": 0,
         "AlertaTIdanado": 0,
+        "TI Offline": 0,
 
         # valores críticos del modelo
         "Y1 SP": 0,
@@ -62,6 +63,7 @@ if __name__ == "__main__":
         "CiclosY1": 1,
         "CiclosY2": 0,
         "AlertaTIdanado": 0,
+        "TI Offline": 0,
 
         "TZ SPD 01": 74.77,
         "TZ SPD 02": 77.5,

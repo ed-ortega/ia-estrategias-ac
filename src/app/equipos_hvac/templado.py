@@ -184,7 +184,7 @@ def clima_templado(data, alerta_ti, pct, queja, grupo, limite_alto, prediccion, 
     ):
         adj_key   = "adj_idoneo"
         motivo    = (
-            f"{SIN_AJUSTE}: Caso idoneo"
+            f"{SIN_AJUSTE}: Caso idóneo"
         )
 
         return {

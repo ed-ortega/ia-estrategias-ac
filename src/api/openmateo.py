@@ -129,9 +129,6 @@ def obtener_clima(
         cache_data = CLIMA_CACHE[cache_key]
 
         if ahora - cache_data["timestamp"] < CACHE_TTL:
-
-            print(f"CACHE HIT -> {provider}")
-
             return cache_data["data"]
 
     # ====================================
@@ -169,7 +166,5 @@ def obtener_clima(
     # SAVE CACHE FILE
     # ====================================
     guardar_cache()
-
-    print(f"API REQUEST -> {provider}")
 
     return clima

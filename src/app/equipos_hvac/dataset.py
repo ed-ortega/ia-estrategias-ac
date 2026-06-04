@@ -18,7 +18,7 @@ console = Console()
 DATA_PATH = Path("src/data/hvac_historico.parquet")
 META_PATH = Path("src/data/meta.json")
 
-BLOQUE_DIAS = 3
+BLOQUE_DIAS = 7
 
 
 # ==============================
@@ -144,26 +144,27 @@ def crear_dataset():
     for inicio, fin in bloques:
         console.print(f"[blue]Bloque: {inicio.date()} → {fin.date()}[/blue]")
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [
-                executor.submit(
-                    procesar,
+        for region in regiones:
+            try:
+                console.print(
+                    f"[cyan]Procesando región {region['idRegion']} - {region['nombre']}[/cyan]"
+                )
+
+                result = procesar(
                     gse,
                     cliente["idCliente"],
                     region,
                     inicio,
                     fin
                 )
-                for region in regiones
-            ]
 
-            for future in as_completed(futures):
-                try:
-                    result = future.result()
-                    if result:
-                        resultados_globales.extend(result)
-                except Exception as e:
-                    console.print(f"[red]Error:[/red] {e}")
+                if result:
+                    resultados_globales.extend(result)
+
+            except Exception as e:
+                console.print(
+                    f"[red]Error en región {region['idRegion']}:[/red] {e}"
+                )
 
     if not resultados_globales:
         console.print("[red]Sin resultados nuevos[/red]")
@@ -191,6 +192,7 @@ def crear_dataset():
     # ==============================
     columnas_modelo = [
         "CtrlGSE","CambiosSP","CiclosY1","CiclosY2","AlertaTIdanado",
+        "TI Offline",
 
         "TZ SPD 01","TZ SPD 02","TZ SP",
 

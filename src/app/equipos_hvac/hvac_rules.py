@@ -1,11 +1,12 @@
 import math
 from ...api.openmateo import obtener_clima
-from datetime import datetime, timedelta
+from datetime import datetime, time
 from rich.console import Console
 import pandas as pd
 import requests
 import unicodedata
 from .templado import clima_templado
+from .calor import clima_calido
 
 console = Console()
 
@@ -61,13 +62,20 @@ def _grupo(region: str | None) -> str:
 # ==============================
 # 🕐 UTILIDADES HORARIAS
 # ==============================
-def _horas_entre(inicio: str, fin: str) -> float:
-    """Horas entre dos strings HH:MM. Soporta cruce de medianoche."""
-    fmt = "%H:%M"
-    t1 = datetime.strptime(inicio, fmt)
-    t2 = datetime.strptime(fin, fmt)
-    
-    diff = (t2 - t1).total_seconds() / 3600
+def _horas_entre(inicio, fin) -> float:
+
+    if isinstance(inicio, time):
+        inicio = datetime.combine(datetime.today(), inicio)
+    else:
+        inicio = datetime.strptime(str(inicio), "%H:%M:%S")
+
+    if isinstance(fin, time):
+        fin = datetime.combine(datetime.today(), fin)
+    else:
+        fin = datetime.strptime(str(fin), "%H:%M:%S")
+
+    diff = (fin - inicio).total_seconds() / 3600
+
     return diff + 24 if diff < 0 else diff
 
 def clamp_pct(valor):
@@ -101,6 +109,18 @@ CLIMA_DEFAULT = {
     "temp_prom": 80,
 }
 
+def normalizar_coord(valor):
+    valor = float(valor)
+
+    if abs(valor) > 1000:
+        valor /= 1_000_000
+
+    return valor
+
+def to_float(valor, default=0.0):
+    if pd.isna(valor):
+        return default
+    return float(valor)
 
 def calcular_porcentajes_operacion(data: dict) -> dict:
 
@@ -119,9 +139,9 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
 
     h_sp = max(24.0 - h_spd1 - h_spd2, 0.0)
 
-    y1_spd1 = float(data.get("Y1 SPD 01") or 0)
-    y1_spd2 = float(data.get("Y1 SPD 02") or 0)
-    y1_sp   = float(data.get("Y1 SP") or 0)
+    y1_spd1 = to_float(data.get("Y1 SPD 01"))
+    y1_spd2 = to_float(data.get("Y1 SPD 02"))
+    y1_sp   = to_float(data.get("Y1 SP"))
 
     def pct(y, h):
         if not h:
@@ -147,14 +167,13 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
     # 🔴 CLIMA
     # =========================
     def is_invalid(value):
-        return (
-            value is None
-            or (isinstance(value, float) and math.isnan(value))
-        )
+        return pd.isna(value)
 
-    
     lat = data.get("Latitud")
     lon = data.get("Longitud")
+    
+    lat = normalizar_coord(lat)
+    lon = normalizar_coord(lon)
 
     # fallback por estado
     if is_invalid(lat) or is_invalid(lon):
@@ -167,16 +186,36 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
 
     try:
 
-        clima = obtener_clima(lat, lon, provider="weatherapi")
+        # =========================
+        # PRIMER INTENTO: OPEN-METEO
+        # =========================
+        try:
+            clima = obtener_clima(lat, lon, provider="openmeteo")
 
-        # validar estructura
-        if (
-            "hourly" not in clima
-            or "time" not in clima["hourly"]
-            or "apparent_temperature" not in clima["hourly"]
-        ):
-            raise ValueError("Respuesta inválida de Open-Meteo")
+            if (
+                "hourly" not in clima
+                or "time" not in clima["hourly"]
+                or "apparent_temperature" not in clima["hourly"]
+            ):
+                raise ValueError("Respuesta inválida de Open-Meteo")
 
+        except Exception as e:
+            console.print(
+                f"[yellow]Open-Meteo falló ({e}), intentando WeatherAPI...[/yellow]"
+            )
+
+            clima = obtener_clima(lat, lon, provider="weatherapi")
+
+            if (
+                "hourly" not in clima
+                or "time" not in clima["hourly"]
+                or "apparent_temperature" not in clima["hourly"]
+            ):
+                raise ValueError("Respuesta inválida de WeatherAPI")
+
+        # =========================
+        # PROCESAMIENTO NORMAL
+        # =========================
         df = pd.DataFrame({
             "time": clima["hourly"]["time"],
             "at": clima["hourly"]["apparent_temperature"]
@@ -187,9 +226,6 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
 
         df["time"] = pd.to_datetime(df["time"]).dt.tz_localize(None)
 
-        # =========================
-        # 👉 MAÑANA
-        # =========================
         fechas = sorted(df["time"].dt.date.unique())
 
         if len(fechas) >= 2:
@@ -202,22 +238,25 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
         if df.empty:
             return resultado
 
-        # =========================
-        # PERIODOS
-        # =========================
+        
         def filtrar_periodo(inicio, fin):
 
-            h_ini = int(inicio.split(":")[0])
-            h_fin = int(fin.split(":")[0])
+            if isinstance(inicio, time):
+                h_ini = inicio.hour
+            else:
+                h_ini = int(str(inicio).split(":")[0])
 
-            # horario normal
+            if isinstance(fin, time):
+                h_fin = fin.hour
+            else:
+                h_fin = int(str(fin).split(":")[0])
+
             if h_ini <= h_fin:
                 return df[
                     (df["time"].dt.hour >= h_ini)
                     & (df["time"].dt.hour <= h_fin)
                 ]
 
-            # horario cruzando medianoche
             return df[
                 (df["time"].dt.hour >= h_ini)
                 | (df["time"].dt.hour <= h_fin)
@@ -242,9 +281,6 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
             ~df["time"].dt.hour.isin(horas_spd)
         ]
 
-        # =========================
-        # STATS
-        # =========================
         def stats(df_):
 
             if df_.empty:
@@ -264,22 +300,22 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
         console.print("[yellow]Timeout obteniendo clima[/yellow]")
 
     except requests.ConnectionError:
-        console.print("[yellow]Sin conexión con Open-Meteo[/yellow]")
+        console.print("[yellow]Sin conexión con proveedores climáticos[/yellow]")
 
     except requests.HTTPError as e:
         console.print(f"[yellow]HTTP Error clima: {e}[/yellow]")
 
     except Exception as e:
         console.print(f"[red]Error obteniendo clima: {e}[/red]")
-
+    
     return resultado
 
 def clasificar_clima(temp_f):
-    if temp_f > 92:
+    if temp_f > 78:
         return "Calor"
-    elif temp_f >= 68:
+    elif temp_f >= 68 and temp_f <= 78:
         return "Templado"
-    else:
+    elif temp_f < 68:
         return "Frio"
 
 # ==============================
@@ -316,17 +352,14 @@ def evaluar_estado(data: dict) -> str:
     if not CtrlGSE:
         return "Sin control GSE"
 
-    if (
-        (es_vacio(TZ) and es_vacio(TIY1) and es_vacio(Y1))
-        or
-        (es_vacio(TZ) and es_vacio(TIY2) and es_vacio(Y1))
-    ):
+    if ((es_vacio(TZ) and es_vacio(TIY1) and es_vacio(Y1)) or (es_vacio(TZ) and es_vacio(TIY2) and es_vacio(Y1))):
         return "Offline"
 
     # 2. TI Dañado
-    #if (es_vacio(TIY1) and alerta_TI == 1 and Y1 > 12):
     if alerta_TI == 1 or (es_vacio(TIY1) and Y1 > 12):
         return "TI Dañado"
+    
+    # TI OFFILINE
 
     # 3. Apagado
     if tecnologia != "venstar":
@@ -344,27 +377,16 @@ def evaluar_estado(data: dict) -> str:
             return "Apagado"
 
     # 4. No enfria
-    if (
-        TC > 0.5
-        and TIY1 > 65
-        and alerta_TI == 0
-    ):
+    if (TC > 0.5 and TIY1 > 65 and alerta_TI == 0):
         return "No enfria"
 
     if tecnologia != "venstar":
         # 5. Ok
-        if (
-            TC > 0.5
-            and TIY1 <= 65
-            and alerta_TI == 0
-        ):
+        if (TC > 0.5 and TIY1 <= 65 and alerta_TI == 0):
             return "Ok"
     else:
         # 6. Ok cuando TIY1 viene vacío
-        if (
-            es_vacio(TIY1)
-            and Y1 <= 12
-        ):
+        if (es_vacio(TIY1) and Y1 <= 12):
             return "Ok"
 
     return "Ok"
@@ -390,6 +412,7 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     grupo       = _grupo(data.get("Estado"))
     limite_alto = bool(data.get("limite_sp_alto", True))
     alerta_ti   = (data.get("AlertaTIdanado") or 0) > 0
+    ti_offline = (data.get("TI Offline") or 0) > 0
     cambios_sp  = data.get("CambiosSP") or 0
 
     estatus = evaluar_estado(data)
@@ -399,21 +422,32 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     SIN_AJUSTE = "Sin ajuste"
     motivo    = SIN_AJUSTE
 
-    # Porcentajes de operación
-    try:
-        pct = calcular_porcentajes_operacion(data)
-    except Exception:
-        pct = {
-            "SPD1": {"operacion_pct": 0},
-            "SPD2": {"operacion_pct": 0},
-            "SP": {"operacion_pct": 0, "temp_prom": 0},
+    if ti_offline:
+        motivo = f"{SIN_AJUSTE}: TI Offline"
+        return {
+            **resultado,
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo,
         }
-
-    temp_ref = pct["SP"].get("temp_prom", 0)
-
 
     if estatus == "Sin control GSE":
         motivo = f"{SIN_AJUSTE}: Sin control GSE"
+        return {
+            **resultado,
+            "SP":    '',
+            "SPD01": '',
+            "SPD02": '',
+            "BandaY1": '',
+            "BandaY2": '',
+            "motivo": motivo,
+        }
+    
+    if estatus == "TI Dañado":
+        motivo = f"{SIN_AJUSTE}: TI Dañado"
         return {
             **resultado,
             "SP":    '',
@@ -460,33 +494,74 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
             "motivo": motivo, 
         }
 
-    clima = clasificar_clima(temp_ref)
-
-    resultclima = {
-        "temperaura": temp_ref,
-        "clima": clima,
+    # Porcentajes de operación
+    try:
+        pct = calcular_porcentajes_operacion(data)
+    except Exception:
+        pct = {
+            "SPD1": {"operacion_pct": 0},
+            "SPD2": {"operacion_pct": 0},
+            "SP": {"operacion_pct": 0, "temp_prom": 0},
+        }
+    
+    climas = {
+        "SP": {
+            "temperatura": pct["SP"].get("temp_prom", 0),
+            "clima": clasificar_clima(pct["SP"].get("temp_prom", 0))
+        },
+        "SPD1": {
+            "temperatura": pct["SPD1"].get("temp_prom", 0),
+            "clima": clasificar_clima(pct["SPD1"].get("temp_prom", 0))
+        },
+        "SPD2": {
+            "temperatura": pct["SPD2"].get("temp_prom", 0),
+            "clima": clasificar_clima(pct["SPD2"].get("temp_prom", 0))
+        }
     }
 
-    if clima != "Templado":
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": f"{SIN_AJUSTE}, clima: {clima} → reglas aún no implementadas"
-        }
+    resultados_ia = {}
 
-    if clima == "Templado":
-        clima_templado(
-            data=data, 
-            alerta_ti=alerta_ti, 
-            pct=pct, 
-            queja=queja, 
-            grupo=grupo,
-            limite_alto=limite_alto,
-            prediccion=prediccion,
-            resultado=resultado, 
-            resultclima=resultclima
-        )
+    for sensor, resultclima in climas.items():
+
+        clima = resultclima["clima"]
+
+        if clima == "Frio":
+            resultados_ia[sensor] = {
+                **resultado,
+                "SP": "",
+                "SPD01": "",
+                "SPD02": "",
+                "BandaY1": "",
+                "BandaY2": "",
+                "motivo": f"{SIN_AJUSTE}, clima: Frio → reglas aún no implementadas"
+            }
+
+        elif clima == "Calor":
+            resultados_ia[sensor] = clima_calido(
+                data=data,
+                alerta_ti=alerta_ti,
+                pct=pct,
+                queja=queja,
+                grupo=grupo,
+                limite_alto=limite_alto,
+                prediccion=prediccion,
+                resultado=resultado,
+                resultclima=resultclima
+            )
+
+        elif clima == "Templado":
+            resultados_ia[sensor] = clima_templado(
+                data=data,
+                alerta_ti=alerta_ti,
+                pct=pct,
+                queja=queja,
+                grupo=grupo,
+                limite_alto=limite_alto,
+                prediccion=prediccion,
+                resultado=resultado,
+                resultclima=resultclima
+            )
+
+    return {
+        "resultados_ia": resultados_ia
+    }

@@ -25,6 +25,7 @@ def completar_prompt(data):
         "CiclosY1": 0,
         "CiclosY2": 0,
         "AlertaTIdanado": 0,
+        "TI Offline": 0,
 
         "Y1 SP": 0,
         "Y1 SPD 01": 0,
@@ -97,21 +98,65 @@ if __name__ == "__main__":
 
             except Exception:
                 operacion = {
-                    "SPD1": 0,
-                    "SPD2": 0,
-                    "SP": 0
+                    "SPD1": {},
+                    "SPD2": {},
+                    "SP": {}
                 }
+
+            # ==============================
+            # 🎯 RESUMEN RESULTADO
+            # ==============================
+            ajustado = (
+                resultado_modelo
+                .get("ajustado", {})
+                .get("resultados_ia", {})
+            )
 
             resultado_final = {
                 "estado": estado,
-                "queja": queja,
-                "operacion": operacion,
-                "modelo": resultado_modelo
+                "queja": queja
             }
+
+            for sensor in ["SP", "SPD1", "SPD2"]:
+
+                resultado_sensor = {
+                    "operacion_pct": operacion.get(sensor, {}).get("operacion_pct", ""),
+                    "temp_prom": operacion.get(sensor, {}).get("temp_prom", ""),
+                    "motivo": ajustado.get(sensor, {}).get("motivo", ""),
+                    "clima": ajustado.get(sensor, {}).get("clima", "")
+                }
+
+                if sensor == "SP":
+                    resultado_sensor["SP"] = (
+                        ajustado.get(sensor, {}).get("SP", "")
+                    )
+
+                elif sensor == "SPD1":
+                    resultado_sensor["SPD01"] = (
+                        ajustado.get(sensor, {}).get("SPD01", "")
+                    )
+
+                elif sensor == "SPD2":
+                    resultado_sensor["SPD02"] = (
+                        ajustado.get(sensor, {}).get("SPD02", "")
+                    )
+
+                resultado_final[sensor] = resultado_sensor
+
+            resultado_final["BandaY1"] = (
+                ajustado.get("SP", {}).get("BandaY1", "")
+            )
+
+            resultado_final["BandaY2"] = (
+                ajustado.get("SP", {}).get("BandaY2", "")
+            )
 
             resultados.append({
                 **prompt,
-                "resultado": json.dumps(resultado_final, ensure_ascii=False)
+                "resultado": json.dumps(
+                    resultado_final,
+                    ensure_ascii=False
+                )
             })
 
         except Exception as e:

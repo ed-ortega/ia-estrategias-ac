@@ -23,6 +23,7 @@ FEATURES = [
     "TC",
 
     "CtrlGSE","CambiosSP","CiclosY1","CiclosY2","AlertaTIdanado",
+    "TI Offline",
 
     # dinámicos
     "TZ SPD 01","TZ SPD 02","TZ SP",

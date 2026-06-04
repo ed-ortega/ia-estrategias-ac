@@ -38,7 +38,7 @@ def obtener_valor(data, ruta, default=None):
         for key in ruta:
             data = data[key]
         return data
-    except:
+    except Exception:
         return default
 
 
@@ -46,16 +46,21 @@ def obtener_valor(data, ruta, default=None):
 # LEER EXCEL
 # =========================
 
-df = pd.read_excel(ARCHIVO_ENTRADA, sheet_name=HOJA)
+df = pd.read_excel(
+    ARCHIVO_ENTRADA,
+    sheet_name=HOJA
+)
 
 # =========================
 # PARSEAR JSON
 # =========================
 
-json_parseado = df[COLUMNA_JSON].apply(limpiar_json)
+json_parseado = df[COLUMNA_JSON].apply(
+    limpiar_json
+)
 
 # =========================
-# EXTRAER DATOS
+# DATOS GENERALES
 # =========================
 
 df["estado"] = json_parseado.apply(
@@ -67,113 +72,96 @@ df["queja"] = json_parseado.apply(
 )
 
 # =========================
-# MODELO AJUSTADO
+# SP
 # =========================
 
-df["SP"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "SP"])
+df["sp"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SP", "SP"])
 )
 
-df["SPD01"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "SPD01"])
+df["clima_sp"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SP", "clima"])
 )
 
-df["SPD02"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "SPD02"])
+df["motivo_sp"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SP", "motivo"])
 )
 
-df["clima"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "clima"])
+df["temp_prom_sp"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SP", "temp_prom"])
 )
 
-df["motivo"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "motivo"])
-)
-
-# =========================
-# TEMPERATURAS
-# =========================
-
-df["temp_prom_SP"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["operacion", "SP", "temp_prom"])
-)
-
-df["temp_prom_SPD1"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["operacion", "SPD1", "temp_prom"])
-)
-
-df["temp_prom_SPD2"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["operacion", "SPD2", "temp_prom"])
+df["operacion_pct_sp"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SP", "operacion_pct"])
 )
 
 # =========================
-# OPERACION %
+# SPD1
 # =========================
 
-df["operacion_pct_SP"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["operacion", "SP", "operacion_pct"])
+df["spd01"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD1", "SPD01"])
 )
 
-df["operacion_pct_SPD1"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["operacion", "SPD1", "operacion_pct"])
+df["clima_spd1"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD1", "clima"])
 )
 
-df["operacion_pct_SPD2"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["operacion", "SPD2", "operacion_pct"])
+df["motivo_spd1"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD1", "motivo"])
 )
 
-# =========================
-# NORMALIZADO
-# =========================
-
-df["normalizado_sp"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "normalizado", "SP"])
+df["temp_prom_spd1"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD1", "temp_prom"])
 )
 
-df["normalizado_spd1"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "normalizado", "SPD01"])
-)
-
-df["normalizado_spd2"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "normalizado", "SPD02"])
-)
-
-df["normalizado_banday1"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "normalizado", "BandaY1"])
-)
-
-df["normalizado_banday2"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "normalizado", "BandaY2"])
+df["operacion_pct_spd1"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD1", "operacion_pct"])
 )
 
 # =========================
-# AJUSTADO
+# SPD2
 # =========================
 
-df["ajustado_sp"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "SP"])
+df["spd02"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD2", "SPD02"])
 )
 
-df["ajustado_spd1"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "SPD01"])
+df["clima_spd2"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD2", "clima"])
 )
 
-df["ajustado_spd2"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "SPD02"])
+df["motivo_spd2"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD2", "motivo"])
 )
 
-df["ajustado_banday1"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "BandaY1"])
+df["temp_prom_spd2"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD2", "temp_prom"])
 )
 
-df["ajustado_banday2"] = json_parseado.apply(
-    lambda x: obtener_valor(x, ["modelo", "ajustado", "BandaY2"])
+df["operacion_pct_spd2"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["SPD2", "operacion_pct"])
+)
+
+# =========================
+# BANDAS
+# =========================
+
+df["banday1"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["BandaY1"])
+)
+
+df["banday2"] = json_parseado.apply(
+    lambda x: obtener_valor(x, ["BandaY2"])
 )
 
 # =========================
 # EXPORTAR
 # =========================
 
-df.to_excel(ARCHIVO_SALIDA, index=False)
+df.to_excel(
+    ARCHIVO_SALIDA,
+    index=False
+)
 
-print(f"\nArchivo generado: {ARCHIVO_SALIDA}")
+print(f"\n✅ Archivo generado: {ARCHIVO_SALIDA}")
