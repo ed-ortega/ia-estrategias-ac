@@ -43,7 +43,9 @@ zip -r proyecto_hvac.zip . \
 -x ".DS_Store"
 ```
 
+uvicorn server:app --reload
 
+http://127.0.0.1:8000/openapi.json
 
 {
             "idCliente": 160,

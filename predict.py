@@ -76,6 +76,8 @@ if __name__ == "__main__":
 
             prompt = completar_prompt(prompt)
 
+            print("\n Prompt: ", prompt)
+
             # ==============================
             # 🔮 PREDICCIÓN
             # ==============================
@@ -122,7 +124,8 @@ if __name__ == "__main__":
                 resultado_sensor = {
                     "operacion_pct": operacion.get(sensor, {}).get("operacion_pct", ""),
                     "temp_prom": operacion.get(sensor, {}).get("temp_prom", ""),
-                    "motivo": ajustado.get(sensor, {}).get("motivo", ""),
+                    "motivo" : ajustado.get(sensor, {}).get("motivo", ""),
+                    "motivo_detallado": ajustado.get(sensor, {}).get("motivo_detallado", ""),
                     "clima": ajustado.get(sensor, {}).get("clima", "")
                 }
 

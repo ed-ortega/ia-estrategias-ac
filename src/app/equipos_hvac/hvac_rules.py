@@ -7,6 +7,7 @@ import requests
 import unicodedata
 from .templado import clima_templado
 from .calor import clima_calido
+from .frio import clima_frio
 
 console = Console()
 
@@ -62,17 +63,35 @@ def _grupo(region: str | None) -> str:
 # ==============================
 # 🕐 UTILIDADES HORARIAS
 # ==============================
+def _parse_hora(valor):
+
+    if valor is None or pd.isna(valor):
+        return None
+
+    if isinstance(valor, time):
+        return datetime.combine(datetime.today(), valor)
+
+    valor = str(valor).strip()
+
+    if valor == "":
+        return None
+
+    if len(valor) == 5:  # 08:00
+        valor += ":00"
+
+    try:
+        return datetime.strptime(valor, "%H:%M:%S")
+    except ValueError:
+        return None
+
+
 def _horas_entre(inicio, fin) -> float:
 
-    if isinstance(inicio, time):
-        inicio = datetime.combine(datetime.today(), inicio)
-    else:
-        inicio = datetime.strptime(str(inicio), "%H:%M:%S")
+    inicio = _parse_hora(inicio)
+    fin = _parse_hora(fin)
 
-    if isinstance(fin, time):
-        fin = datetime.combine(datetime.today(), fin)
-    else:
-        fin = datetime.strptime(str(fin), "%H:%M:%S")
+    if inicio is None or fin is None:
+        return 0.0
 
     diff = (fin - inicio).total_seconds() / 3600
 
@@ -110,12 +129,19 @@ CLIMA_DEFAULT = {
 }
 
 def normalizar_coord(valor):
-    valor = float(valor)
+    try:
+        if pd.isna(valor):
+            return None
 
-    if abs(valor) > 1000:
-        valor /= 1_000_000
+        valor = float(valor)
 
-    return valor
+        if abs(valor) > 1000:
+            valor /= 1_000_000
+
+        return valor
+
+    except:
+        return None
 
 def to_float(valor, default=0.0):
     if pd.isna(valor):
@@ -171,9 +197,12 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
 
     lat = data.get("Latitud")
     lon = data.get("Longitud")
-    
-    lat = normalizar_coord(lat)
-    lon = normalizar_coord(lon)
+
+    if not pd.isna(lat):
+        lat = normalizar_coord(lat)
+
+    if not pd.isna(lon):
+        lon = normalizar_coord(lon)
 
     # fallback por estado
     if is_invalid(lat) or is_invalid(lon):
@@ -238,18 +267,34 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
         if df.empty:
             return resultado
 
-        
+        def obtener_hora(valor, default=0):
+
+            if valor is None:
+                return default
+
+            try:
+                if pd.isna(valor):
+                    return default
+            except:
+                pass
+
+            if isinstance(valor, time):
+                return valor.hour
+
+            valor = str(valor).strip()
+
+            if valor == "" or valor.lower() == "nan":
+                return default
+
+            try:
+                return int(valor.split(":")[0])
+            except (ValueError, TypeError):
+                return default
+
         def filtrar_periodo(inicio, fin):
 
-            if isinstance(inicio, time):
-                h_ini = inicio.hour
-            else:
-                h_ini = int(str(inicio).split(":")[0])
-
-            if isinstance(fin, time):
-                h_fin = fin.hour
-            else:
-                h_fin = int(str(fin).split(":")[0])
+            h_ini = obtener_hora(inicio)
+            h_fin = obtener_hora(fin)
 
             if h_ini <= h_fin:
                 return df[
@@ -407,6 +452,42 @@ def evaluar_queja(data: dict) -> str:
 # ==============================
 # 🚀 FUNCIÓN PRINCIPAL
 # ==============================
+def _sin_ajuste(resultado, motivo):
+    return {
+        "resultados_ia": {
+            "SP": {
+                **resultado,
+                "SP": "",
+                "SPD01": "",
+                "SPD02": "",
+                "BandaY1": "",
+                "BandaY2": "",
+                "motivo": motivo,
+                "motivo_detallado": motivo
+            },
+            "SPD1": {
+                **resultado,
+                "SP": "",
+                "SPD01": "",
+                "SPD02": "",
+                "BandaY1": "",
+                "BandaY2": "",
+                "motivo": motivo,
+                "motivo_detallado": motivo
+            },
+            "SPD2": {
+                **resultado,
+                "SP": "",
+                "SPD01": "",
+                "SPD02": "",
+                "BandaY1": "",
+                "BandaY2": "",
+                "motivo": motivo,
+                "motivo_detallado": motivo
+            }
+        }
+    }
+
 def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
 
     grupo       = _grupo(data.get("Estado"))
@@ -424,85 +505,52 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
 
     if ti_offline:
         motivo = f"{SIN_AJUSTE}: TI Offline"
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo,
-        }
+        return _sin_ajuste(
+            resultado,
+            motivo
+        )
 
     if estatus == "Sin control GSE":
         motivo = f"{SIN_AJUSTE}: Sin control GSE"
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo,
-        }
+        return _sin_ajuste(
+            resultado,
+            motivo
+        )
     
     if estatus == "TI Dañado":
         motivo = f"{SIN_AJUSTE}: TI Dañado"
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo,
-        }
+        return _sin_ajuste(
+            resultado,
+            motivo
+        )
 
     if estatus == "Apagado":
         motivo = f"{SIN_AJUSTE}: Apagado"
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo,
-        }
+        return _sin_ajuste(
+            resultado,
+            motivo
+        )
 
     if estatus == "Offline":
         motivo = f"{SIN_AJUSTE}: Offline"
-        return {
-            **resultado,
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo,
-        }
+        return _sin_ajuste(
+            resultado,
+            motivo
+        )
 
     if cambios_sp >= 8:
         motivo = f"{SIN_AJUSTE}: CambiosSP={cambios_sp} ≥ 8 → sin ajuste automático"
-        return {
-            **resultado, 
-            "SP":    '',
-            "SPD01": '',
-            "SPD02": '',
-            "BandaY1": '',
-            "BandaY2": '',
-            "motivo": motivo, 
-        }
+        return _sin_ajuste(
+            resultado,
+            motivo
+        )
 
     # Porcentajes de operación
     try:
         pct = calcular_porcentajes_operacion(data)
-    except Exception:
-        pct = {
-            "SPD1": {"operacion_pct": 0},
-            "SPD2": {"operacion_pct": 0},
-            "SP": {"operacion_pct": 0, "temp_prom": 0},
-        }
+    except Exception as e:
+        print("ERROR calcular_porcentajes_operacion:", e)
+        raise
     
     climas = {
         "SP": {
@@ -522,19 +570,21 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     resultados_ia = {}
 
     for sensor, resultclima in climas.items():
-
+        
         clima = resultclima["clima"]
 
         if clima == "Frio":
-            resultados_ia[sensor] = {
-                **resultado,
-                "SP": "",
-                "SPD01": "",
-                "SPD02": "",
-                "BandaY1": "",
-                "BandaY2": "",
-                "motivo": f"{SIN_AJUSTE}, clima: Frio → reglas aún no implementadas"
-            }
+            resultados_ia[sensor] = clima_frio(
+                data=data,
+                alerta_ti=alerta_ti,
+                pct=pct,
+                queja=queja,
+                grupo=grupo,
+                limite_alto=limite_alto,
+                prediccion=prediccion,
+                resultado=resultado,
+                resultclima=resultclima
+            )
 
         elif clima == "Calor":
             resultados_ia[sensor] = clima_calido(
