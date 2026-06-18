@@ -11,9 +11,13 @@ import json
 import pandas as pd
 from rich.console import Console
 from rich.progress import track
+from src.api.gsepro import GSEClient
+from datetime import date, timedelta
 
 console = Console()
 
+# fecha de ayer
+ayer = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 
 # ==============================
 # 🧩 COMPLETAR PROMPT
@@ -56,10 +60,42 @@ if __name__ == "__main__":
     model, columns, targets = cargar()
     console.print("📦 Modelo cargado\n")
 
-    # Leer archivo excel "EQUIPOS 7 ELEVEN.xlsx" y obtener datos para generar promps
-    archivo = "EQUIPOS 7 ELEVEN.xlsx"
+    gse = GSEClient()
 
-    df = pd.read_excel(archivo)
+    cliente = next(
+        (c for c in gse.clientes_regiones() if c["idCliente"] == 160),
+        None
+    )
+
+    regiones = cliente["regiones"]
+
+    todos_los_equipos = []
+
+    for region in regiones:
+        idRegion = region["idRegion"]
+        nombre = region["nombre"]
+
+        try:
+            equipos = gse.hvac_valores(160, ayer, ayer, idRegion)
+
+            if not equipos:
+                print(f"⚠️ Sin datos → {nombre}")
+                continue
+
+            print(f"✅ {nombre} PROCESADO")
+
+            # Agregar región a cada registro (opcional)
+            for equipo in equipos:
+                equipo["idRegion"] = idRegion
+                equipo["region"] = nombre
+
+            todos_los_equipos.extend(equipos)
+
+        except Exception as e:
+            print(f"💥 Error API - [{ayer}] - ({nombre}): {e}")
+
+    # DataFrame unificado
+    df = pd.DataFrame(todos_los_equipos)
 
     console.print(f"✅ Registros encontrados: {len(df)}\n")
 
@@ -75,8 +111,6 @@ if __name__ == "__main__":
             prompt = row.to_dict()
 
             prompt = completar_prompt(prompt)
-
-            print("\n Prompt: ", prompt)
 
             # ==============================
             # 🔮 PREDICCIÓN

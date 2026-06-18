@@ -9,6 +9,55 @@ from .templado import clima_templado
 from .calor import clima_calido
 from .frio import clima_frio
 
+def cargar_quejas_api() -> pd.DataFrame:
+    URL = "https://an-5dd0c5c60d33470a8a883871ce404f2b.ecs.us-east-1.on.aws/ml/quejas"
+    page = 1
+    size = 500  # usa el máximo que permita la API
+    registros = []
+
+    while True:
+        response = requests.get(
+            URL,
+            params={
+                "page": page,
+                "size": size
+            },
+            timeout=60
+        )
+
+        response.raise_for_status()
+
+        payload = response.json()
+
+        data = payload["data"]
+
+        if not data:
+            break
+
+        registros.extend(data)
+
+        total = payload["total"]
+        total_pages = math.ceil(total / size)
+
+        if page >= total_pages:
+            break
+
+        page += 1
+
+    df = pd.DataFrame(registros)
+
+    df = df.rename(columns={
+        "fecha": "Fecha",
+        "sucursal": "Sucursal",
+        "ubicacion": "Ubicacion"
+    })
+
+    df["Fecha"] = pd.to_datetime(df["Fecha"])
+
+    return df
+
+df_quejas = cargar_quejas_api()
+
 console = Console()
 
 # ==============================
@@ -52,6 +101,10 @@ REGION_A_GRUPO: dict[str, str] = {
     "estado de mexico": "Metro",
     "estado de méxico": "Metro",
     "edomex":           "Metro",
+    "Mexico":           "Metro",
+    "México":           "Metro",
+    "mexico":           "Metro",
+    "méxico":           "Metro",
 }
 
 def _grupo(region: str | None) -> str:
@@ -367,87 +420,126 @@ def clasificar_clima(temp_f):
 # 🧠 EVALUADORES
 # ==============================
 def es_vacio(valor):
-
     return (
         valor is None
         or pd.isna(valor)
-        or valor == 0
+        or (isinstance(valor, str) and valor.strip() == "")
     )
+
+def num(valor):
+    """Convierte a float o devuelve None."""
+    return None if es_vacio(valor) else float(valor)
 
 def evaluar_estado(data: dict) -> str:
     """
     Estados:
     - Sin control GSE
+    - Offline
+    - TI Offline
     - TI Dañado
     - Apagado
     - No enfria
     - Ok
+    - No cumple
     """
 
     CtrlGSE = data.get("CtrlGSE")
-    alerta_TI = data.get("AlertaTIdanado") or 0
-    TIY1 = data.get("TIY1")
-    TIY2 = data.get("TIY2")
-    Y1 = data.get("Y1")
-    TC = data.get("TC")
-    TZ = data.get("TZ")
-    tecnologia = data.get("Tecnología")
+    alerta_TI = int(data.get("AlertaTIdanado") or 0)
+    TIY1 = num(data.get("TIY1"))
+    TIY2 = num(data.get("TIY2"))
+    Y1 = num(data.get("Y1"))
+    TC = num(data.get("TC"))
+    TZ = num(data.get("TZ"))
+    tecnologia = (data.get("Tecnologia") or "").lower().strip()
+    ti_offline = (data.get("TI Offline") or 0) > 0
+
+    ti_alta = TIY1 is not None and TIY1 > 65
+    tz_alta = TZ is not None and TZ > 75
+    tc_apagado = TC is None or TC < 0.5
 
     # 1. Sin control GSE
     if not CtrlGSE:
         return "Sin control GSE"
 
-    if ((es_vacio(TZ) and es_vacio(TIY1) and es_vacio(Y1)) or (es_vacio(TZ) and es_vacio(TIY2) and es_vacio(Y1))):
+    # 2. Offline
+    if TZ is None and Y1 is None and (TIY1 is None or TIY2 is None):
+        return "Offline"
+    
+    if tecnologia == "salus" and TIY1 is None and TC is None and Y1 is None:
         return "Offline"
 
-    # 2. TI Dañado
-    if alerta_TI == 1 or (es_vacio(TIY1) and Y1 > 12):
+    # 3. TI Offline
+    if ti_offline:
+        return "TI Offline"
+
+    # 4. TI Dañado
+    if alerta_TI == 1 or (TIY1 is None and Y1 is not None and Y1 > 12):
         return "TI Dañado"
-    
-    # TI OFFILINE
 
-    # 3. Apagado
-    if tecnologia != "venstar":
-        if (
-            TC < 0.5
-            and TIY1 > 65
-            and alerta_TI == 0
-        ):
-            return "Apagado"
-    else:
-        if (
-            TIY1 > 65
-            and alerta_TI == 0
-        ):
-            return "Apagado"
+    # 5. Apagado
+    if tecnologia in ("plc", "salus") and ti_alta and tc_apagado:
+        return "Apagado"
 
-    # 4. No enfria
-    if (TC > 0.5 and TIY1 > 65 and alerta_TI == 0):
+    if tecnologia == "venstar" and ti_alta and TC is not None and TC < 0.5:
+        return "Apagado"
+
+    if tecnologia == "sensibo" and tz_alta and ti_alta and tc_apagado: 
+        return "Apagado"
+
+    # 6. No enfria
+    if tecnologia in ("plc", "salus") and ti_alta and not tc_apagado:
         return "No enfria"
+    
+    if (tecnologia == "sensibo" and tz_alta) and ((TIY1 is None) or (ti_alta and not tc_apagado)):
+        return "No enfria"
+    
+    if tecnologia == "venstar" and ti_alta and ((TC is None and Y1 is not None and Y1 > 4) or (not tc_apagado)):
+        return "No enfria"
+    
+    # 7. Ok
+    if tecnologia in ("plc", "salus") and ((not ti_alta and not tc_apagado) or (not ti_alta and TC is None)):
+        return "Ok"
+    
+    if tecnologia == "salus" and TIY1 is None and ((not tc_apagado and Y1 is None) or (TC is None and Y1 is not None and Y1 < 11)):
+        return "Ok"
 
-    if tecnologia != "venstar":
-        # 5. Ok
-        if (TC > 0.5 and TIY1 <= 65 and alerta_TI == 0):
-            return "Ok"
-    else:
-        # 6. Ok cuando TIY1 viene vacío
-        if (es_vacio(TIY1) and Y1 <= 12):
-            return "Ok"
+    if (tecnologia == "sensibo" and not tz_alta) and ((TIY1 is None) or (not ti_alta and not tc_apagado)):
+        return "Ok"
+    
+    if (tecnologia == "sensibo" and not tc_apagado and (
+        (tz_alta and not ti_alta )
+        or (not tz_alta and ti_alta)
+    )):
+        return "Ok"
+    
+    if tecnologia == "venstar" and (
+        (not ti_alta and not tc_apagado)
+        or (TIY1 is None and TC is None and Y1 is not None and Y1 < 11)
+        or (not ti_alta and TC is None and Y1 is None)
+        or (not ti_alta and TC is None and Y1 is not None and Y1 > 4)
+    ):
+        return "Ok"
 
-    return "Ok"
+    return "No cumple"
 
 def evaluar_queja(data: dict) -> str:
-    """Si / No / NA"""
-    if not data.get("CtrlGSE"):
-        return "NA"
+    sucursal = data.get("Sucursal")
+    ubicacion = data.get("Ubicacion")
 
-    tz_sp = data.get("TZ SP")
-    sp    = data.get("SP")
+    fecha =data.get("Fecha")
 
-    if tz_sp is None or sp is None:
-        return "NA"
+    fecha = pd.to_datetime(fecha)
 
-    return "Si" if (tz_sp - sp) > 2 else "No"
+    fecha_inicio = fecha - pd.Timedelta(days=60)
+
+    coincidencias = df_quejas[
+        (df_quejas["Sucursal"] == sucursal) &
+        (df_quejas["Ubicacion"] == ubicacion) &
+        (df_quejas["Fecha"] >= fecha_inicio) &
+        (df_quejas["Fecha"] <= fecha)
+    ]
+    
+    return "Si" if not coincidencias.empty else "No"
 
 # ==============================
 # 🚀 FUNCIÓN PRINCIPAL
@@ -503,6 +595,13 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     SIN_AJUSTE = "Sin ajuste"
     motivo    = SIN_AJUSTE
 
+    if estatus == "Sin control GSE":
+        motivo = f"{SIN_AJUSTE}: Sin control GSE"
+        return _sin_ajuste(
+            resultado,
+            motivo
+        )
+    
     if ti_offline:
         motivo = f"{SIN_AJUSTE}: TI Offline"
         return _sin_ajuste(
@@ -510,12 +609,6 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
             motivo
         )
 
-    if estatus == "Sin control GSE":
-        motivo = f"{SIN_AJUSTE}: Sin control GSE"
-        return _sin_ajuste(
-            resultado,
-            motivo
-        )
     
     if estatus == "TI Dañado":
         motivo = f"{SIN_AJUSTE}: TI Dañado"
@@ -583,7 +676,8 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
                 limite_alto=limite_alto,
                 prediccion=prediccion,
                 resultado=resultado,
-                resultclima=resultclima
+                resultclima=resultclima,
+                estatus=estatus
             )
 
         elif clima == "Calor":
@@ -596,7 +690,8 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
                 limite_alto=limite_alto,
                 prediccion=prediccion,
                 resultado=resultado,
-                resultclima=resultclima
+                resultclima=resultclima,
+                estatus=estatus
             )
 
         elif clima == "Templado":
@@ -609,8 +704,42 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
                 limite_alto=limite_alto,
                 prediccion=prediccion,
                 resultado=resultado,
-                resultclima=resultclima
+                resultclima=resultclima,
+                estatus=estatus
             )
+    
+    for _, resultado_sensor in resultados_ia.items():
+
+        clima = climas["SP"]["clima"]
+
+        # CALOR
+        if clima == "Calor":
+            resultado_sensor["BandaY1"] = 1
+            resultado_sensor["BandaY2"] = 1
+
+        # FRÍO
+        elif clima == "Frio":
+            resultado_sensor["BandaY1"] = 2
+            resultado_sensor["BandaY2"] = 12
+
+        # TEMPLADO
+        elif clima == "Templado":
+
+            if estatus == "Ok":
+                resultado_sensor["BandaY1"] = 1
+                resultado_sensor["BandaY2"] = 3
+
+            elif estatus == "No enfria":
+
+                banday2 = data.get("BandaY2")
+
+                if pd.isna(banday2):
+                    banday2 = 1
+                else:
+                    banday2 = min(int(float(banday2)) + 1, 5)
+
+                resultado_sensor["BandaY1"] = 1
+                resultado_sensor["BandaY2"] = banday2
 
     return {
         "resultados_ia": resultados_ia

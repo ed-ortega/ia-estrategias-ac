@@ -1,6 +1,7 @@
 # templado.py
 import math
 import re
+import pandas as pd
 
 SIN_AJUSTE = "Sin ajuste"
 
@@ -24,9 +25,9 @@ RANGOS: dict[str, dict[bool, dict[str, tuple[int, int]]]] = {
 }
 
 _DATA_KEY = {
-    "SP":    "SP",
-    "SPD01": "SPD01",
-    "SPD02": "SPD03",
+    "SP":    "TZ SP",
+    "SPD01": "TZ SPD 01",
+    "SPD02": "TZ SPD 02",
 }
 
 REGLAS_TEMPLADO = {}
@@ -56,494 +57,228 @@ REGLAS_TEMPLADO["NL"] = {"SP": [], "SPD01": [], "SPD02": []}
 
 REGLAS_TEMPLADO["NL"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] is not None and c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '>', 60)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 60)), ("zt_sp", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '>', 60)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 60)), ("zt_sp", -1.0)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
-
 REGLAS_TEMPLADO["NL"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +0.5)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (30, 70))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (30, 50))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 74)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
-
 REGLAS_TEMPLADO["NL"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 85)), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 85)), ("zt_spd02", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (45, 85))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 45)), ("zt_spd02", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (45, 70))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 45)), ("zt_spd02", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 73)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 
 # ---------- REGIÓN SURESTE ----------
 REGLAS_TEMPLADO["Sureste"] = {"SP": [], "SPD01": [], "SPD02": []}
 REGLAS_TEMPLADO["Sureste"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '>', 70)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 70)), ("zt_sp", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '>', 70)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 70)), ("zt_sp", -1.0)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 REGLAS_TEMPLADO["Sureste"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 80)), ("zt_spd01", +0.5)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 80)), ("zt_spd01", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (50, 80))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 50)), ("zt_spd01", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (50, 60))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 50)), ("zt_spd01", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 74)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 REGLAS_TEMPLADO["Sureste"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 90)), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 90)), ("zt_spd02", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (60, 90))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 60)), ("zt_spd02", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 90)), ("zt_spd02", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (60, 70))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 60)), ("zt_spd02", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 73)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 
 # ---------- REGIÓN BC ----------
 REGLAS_TEMPLADO["BC"] = {"SP": [], "SPD01": [], "SPD02": []}
 REGLAS_TEMPLADO["BC"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '>', 30)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 30)), ("zt_sp", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '>', 30)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 30)), ("zt_sp", -1.0)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 REGLAS_TEMPLADO["BC"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +0.5)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
-               lambda c: _pct_cmp(c, '>', 40)), ("zt_spd01", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd01", +0.5)),
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (10, 40))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
-               lambda c: _pct_cmp(c, '>', 10)), ("zt_spd01", -1.0)),
+    (_cond_and(lambda c: c['estatus'] == "Ok",
+               lambda c: _pct_cmp(c, '<', 10)), ("zt_spd01", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
-               lambda c: _pct_cmp(c, '>', 40)), ("zt_spd01", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd01", +1.0)),
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (10, 40))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
-               lambda c: _pct_cmp(c, '>', 10)), ("zt_spd01", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 74)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
+               lambda c: _pct_cmp(c, '<', 10)), ("zt_spd01", -0.5)),
 ])
 REGLAS_TEMPLADO["BC"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 60)), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd02", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (20, 50))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
-               lambda c: _pct_cmp(c, '>', 20)), ("zt_spd02", -1.0)),
+    (_cond_and(lambda c: c['estatus'] == "Ok",
+               lambda c: _pct_cmp(c, '<', 20)), ("zt_spd02", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd02", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (20, 50))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
-               lambda c: _pct_cmp(c, '>', 20)), ("zt_spd02", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 73)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
+               lambda c: _pct_cmp(c, '<', 20)), ("zt_spd02", -0.5)),
 ])
 
 # ---------- REGIÓN METRO ----------
 REGLAS_TEMPLADO["Metro"] = {"SP": [], "SPD01": [], "SPD02": []}
 REGLAS_TEMPLADO["Metro"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '>', 50)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 50)), ("zt_sp", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: c['pct'] is None), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '>', 50)), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 50)), ("zt_sp", -1.0)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 REGLAS_TEMPLADO["Metro"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +0.5)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (30, 50))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (30, 50))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 74)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 REGLAS_TEMPLADO["Metro"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), None),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +0.5)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, 'range', (40, 60))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "Ok",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] <= 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "Ok",
                lambda c: _pct_cmp(c, '<', 40)), ("zt_spd02", -1.0)),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
                lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +1.0)),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] is None,
-               lambda c: c['control_gse'] is None, lambda c: c['tc'] is None,
-               lambda c: c['ti'] is None, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (40, 60))), None),
-    (_cond_and(lambda c: c['queja'] is None, lambda c: c['estatus'] == "No enfria",
-               lambda c: c['control_gse'] == 1, lambda c: c['tc'] > 0.5,
-               lambda c: c['ti'] > 65, lambda c: c['cambios_sp'] < 8,
+    (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '<', 40)), ("zt_spd02", -0.5)),
-    (_cond_and(lambda c: c['estatus'] == "Apagado", lambda c: c['control_gse'] == 1,
-               lambda c: c['tc'] < 0.5, lambda c: c['ti'] > 65,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 73)),
-    (_cond_and(lambda c: c['estatus'] == "Sin control GSE", lambda c: c['control_gse'] == 0,
-               lambda c: c['tc'] is None, lambda c: c['ti'] is None,
-               lambda c: c['cambios_sp'] is None, lambda c: c['pct'] is None), ("fixed", 72)),
 ])
 
 # =============================================================================
@@ -573,7 +308,7 @@ def _safe_int(v) -> int | None:
         f = float(v)
         if math.isnan(f) or math.isinf(f):
             return None
-        return int(round(f))
+        return int(f)
     except (TypeError, ValueError):
         return None
 
@@ -601,52 +336,46 @@ def _valor_actual_data(campo: str, data: dict) -> float | None:
     except (TypeError, ValueError):
         return None
 
-def _resolver_adj(campo: str, instruccion, data: dict, prediccion: dict) -> float | None:
-    if instruccion is None:
-        return None
-    if isinstance(instruccion, tuple) and len(instruccion) == 2:
-        tipo, delta = instruccion
-        if tipo == "fixed":
-            return float(delta)
-        if tipo == "zt_sp":
-            base = _safe_float(data.get("SP"), float("nan"))
-            if math.isnan(base):
-                base = _safe_float(prediccion.get("SP"), float("nan"))
-        elif tipo == "zt_spd01":
-            base = _safe_float(data.get("SPD01"), float("nan"))
-            if math.isnan(base):
-                base = _safe_float(prediccion.get("SPD01"), float("nan"))
-        elif tipo == "zt_spd02":
-            base = _safe_float(data.get("SPD03"), float("nan"))
-            if math.isnan(base):
-                base = _safe_float(prediccion.get("SPD02"), float("nan"))
-        else:
-            return None
-        if math.isnan(base):
-            return None
-        return base + delta
-    return None
+def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: str, limite_alto: bool, data: dict, prediccion: dict, estatus: str | None = None) -> tuple[int | None, str]:
+    rangos = RANGOS.get(grupo, RANGOS["NL"]).get(limite_alto, RANGOS["NL"][True])
+    min_v, max_v = rangos.get(campo, (70, 77))
 
-def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: str, limite_alto: bool, data: dict, prediccion: dict) -> tuple[int | None, str]:
+    # Si es "No enfria", no aplicamos límite máximo
+    no_upper_clamp = (estatus == "No enfria")
+
+    # --- Caso sin instrucción ---
     if instruccion is None:
         if actual is None:
             return None, "Sin valor actual y sin instrucción → en blanco"
-        rangos = RANGOS.get(grupo, RANGOS["NL"]).get(limite_alto, RANGOS["NL"][True])
-        min_v, max_v = rangos.get(campo, (70, 77))
         if actual < min_v:
-            return None, f"Valor actual {actual:.2f} < mínimo {min_v} → no se ajusta, se deja en blanco"
+            return None, f"Valor actual {actual:.2f} < mínimo {min_v} → se deja en blanco"
         if actual > max_v:
-            return max_v, f"Valor actual {actual:.2f} > máximo {max_v}, se baja a {max_v}"
+            if no_upper_clamp:
+                # No hay instrucción → se pone None
+                return None, f"Valor actual {actual:.2f} > máximo {max_v} y estatus='No enfria' sin instrucción → se deja en blanco"
+            else:
+                return max_v, f"Valor actual {actual:.2f} > máximo {max_v} → se ajusta a {max_v}"
         return None, f"Valor actual {actual:.2f} dentro de rango, sin cambios"
+
+    # --- Caso con instrucción ---
     if isinstance(instruccion, tuple) and len(instruccion) == 2:
         tipo, valor = instruccion
+
         if tipo == "fixed":
-            rangos = RANGOS.get(grupo, RANGOS["NL"]).get(limite_alto, RANGOS["NL"][True])
-            min_v, max_v = rangos.get(campo, (70, 77))
-            if valor < min_v or valor > max_v:
-                return None, f"Valor fijo {valor} fuera de rango [{min_v},{max_v}], no se aplica"
-            return int(valor), f"Se asigna valor fijo {valor}"
-        else:
+            nuevo = valor
+            if nuevo < min_v:
+                return None, f"Valor fijo {nuevo} < mínimo {min_v} → no se aplica, se deja en blanco"
+            if nuevo > max_v:
+                if no_upper_clamp:
+                    # Se aplica el fixed aunque exceda el máximo
+                    return _safe_int(nuevo), f"Valor fijo {nuevo} excede máximo {max_v} pero estatus='No enfria' → se asigna {nuevo}"
+                else:
+                    nuevo = max_v
+                    return _safe_int(nuevo), f"Valor fijo excede máximo → se ajusta a {nuevo}"
+            return _safe_int(nuevo), f"Se asigna valor fijo {nuevo}"
+
+        else:  # delta
+            # Determinar el valor base (actual o predicción)
             if actual is None:
                 pred_val = prediccion.get(campo)
                 if pred_val is None:
@@ -655,13 +384,18 @@ def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: s
                 if actual is None:
                     return None, "Predicción inválida"
             nuevo = actual + valor
-            rangos = RANGOS.get(grupo, RANGOS["NL"]).get(limite_alto, RANGOS["NL"][True])
-            min_v, max_v = rangos.get(campo, (70, 77))
             if nuevo < min_v:
-                return None, f"Nuevo valor {nuevo:.2f} < mínimo {min_v}, no se aplica"
+                nuevo = min_v
+                return _safe_int(nuevo), f"Delta {valor:+} lleva el valor a {nuevo:.2f} por debajo del mínimo, se ajusta a {min_v}"
             if nuevo > max_v:
-                return max_v, f"Delta {valor:+} excede máximo, se limita a {max_v}"
-            return _safe_int(nuevo), f"Aplicado delta {valor:+} → {nuevo:.2f} -> {int(round(nuevo))}"
+                if no_upper_clamp:
+                    # Se aplica el delta aunque exceda el máximo
+                    return _safe_int(nuevo), f"Delta {valor:+} excede máximo {max_v} pero estatus='No enfria' → se aplica: {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}"
+                else:
+                    nuevo = max_v
+                    return _safe_int(nuevo), f"Delta {valor:+} excede máximo → se ajusta a {nuevo}"
+            return _safe_int(nuevo), f"Aplicado delta {valor:+} → {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}"
+
     return None, "Instrucción inválida"
 
 def _resumir_motivo(resultado, data_original, grupo, limite_alto):
@@ -677,7 +411,7 @@ def _resumir_motivo(resultado, data_original, grupo, limite_alto):
                 if original < min_v:
                     cambios.append(f"{nombre} no se modificó porque estaba debajo del mínimo ({min_v})")
                 elif original > max_v:
-                    cambios.append(f"{nombre} se limitó a {max_v} por exceder máximo")
+                    cambios.append(f"{nombre} no se modificó porque excedía el máximo y no aplicaba cambio")
                 else:
                     cambios.append(f"{nombre} sin cambios")
             else:
@@ -696,10 +430,10 @@ def _resumir_motivo(resultado, data_original, grupo, limite_alto):
 # =============================================================================
 # FUNCIÓN PRINCIPAL
 # =============================================================================
-def clima_templado(data, alerta_ti, pct, queja, grupo, limite_alto, prediccion, resultado, resultclima):
+def clima_templado(data, alerta_ti, pct, queja, grupo, limite_alto, prediccion, resultado, resultclima, estatus):
     explicacion = []
     te = _safe_float(data.get("TE"), 72.0)
-    estatus = data.get("Estatus Equipo")
+
     control_gse_raw = data.get("Control GSE")
     control_gse = None if control_gse_raw is None else int(float(control_gse_raw)) if str(control_gse_raw).strip() not in ("", "NA") else None
     tc_raw = data.get("TC")
@@ -717,7 +451,7 @@ def clima_templado(data, alerta_ti, pct, queja, grupo, limite_alto, prediccion, 
         grupo = "NL"
 
     explicacion.append(f"Clima TEMPLADO (TE={te:.1f}°F)")
-    explicacion.append(f"Región: {grupo}, Queja: {queja}, Estatus: {estatus}, Control GSE: {control_gse}, TC: {tc}, TI: {ti}, Cambios SP: {cambios_sp}")
+    explicacion.append(f"Región: {grupo}, Queja: {queja}, Estatus: {estatus}")
     explicacion.append(f"PCT SP: {pct_sp}%, SPD1: {pct_spd1}%, SPD2: {pct_spd2}%")
 
     resultado_parcial = {}
@@ -741,7 +475,7 @@ def clima_templado(data, alerta_ti, pct, queja, grupo, limite_alto, prediccion, 
             except Exception:
                 continue
         actual = _valor_actual_data(campo, data)
-        nuevo, msg = _aplicar_instruccion(campo, instruccion, actual, grupo, limite_alto, data, prediccion)
+        nuevo, msg = _aplicar_instruccion(campo, instruccion, actual, grupo, limite_alto, data, prediccion, estatus)
         resultado_parcial[nombre_salida] = nuevo if nuevo is not None else ""
         explicacion.append(f"{nombre_salida}: {msg}")
 

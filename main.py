@@ -46,7 +46,7 @@ if __name__ == "__main__":
     # 🧾 3. INPUT (PROMPT)
     # =====================================
     prompt = {
-        "Tecnología": "Salus",
+        "Tecnologia": "Salus",
         "Region": "Nuevo León",
         "Estado": "Nuevo León",
         "Tipo de HVAC": "HVAC 01",

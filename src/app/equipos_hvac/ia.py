@@ -1,10 +1,7 @@
 from rich.console import Console
-from datetime import datetime
-
 from .hvac_model import entrenar, cargar, predecir
 from .hvac_rules import evaluar_estado, evaluar_queja, calcular_porcentajes_operacion
-
-from .dataset import crear_dataset  # asume que separas esto
+from .dataset import crear_dataset
 
 console = Console()
 
@@ -13,17 +10,13 @@ console = Console()
 # 🚀 ENTRENAMIENTO
 # ==============================
 def entrenar_modelo():
-    console.rule("[bold cyan]🚀 ENTRENAMIENTO HVAC")
-
     df = crear_dataset()
 
     if df is None or df.empty:
         console.print("[red]Sin datos[/red]")
         return
 
-    mae = entrenar(df)
-
-    console.print(f"[green]Modelo entrenado | MAE: {round(mae,4)}[/green]")
+    entrenar(df)
 
 
 # ==============================

@@ -2,8 +2,6 @@ from rich.console import Console
 from datetime import timedelta, datetime
 import numpy as np
 import pandas as pd
-#from ...api.openmateo import cargar_temperatura
-#from ...api.meteostat_api import cargar_temperatura
 
 console = Console()
 
@@ -40,7 +38,7 @@ def procesar(gse, cliente_id, region, inicio, fin):
     registros = []
     
     for e in data:
-        if str(e.get("Tecnología", "")).lower() == "sensibo":
+        if str(e.get("Tecnologia", "")).lower() == "sensibo":
             continue
 
         registro = {
@@ -48,7 +46,7 @@ def procesar(gse, cliente_id, region, inicio, fin):
             "CC": e.get("CC"),
             "Sucursal": e.get("Sucursal"),
             "Ubicación": e.get("Ubicacion"),
-            "Tecnología": e.get("Tecnologia"),
+            "Tecnologia": e.get("Tecnologia"),
             "Fecha": e.get("Fecha"),
             "Region": nombre,
             "Estado": e.get("Estado"),

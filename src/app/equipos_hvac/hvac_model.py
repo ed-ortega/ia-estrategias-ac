@@ -4,8 +4,6 @@ import joblib
 import pandas as pd
 from pathlib import Path
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
-
 from .hvac_rules import aplicar_reglas_hvac
 
 MODEL_PATH = Path("src/data/equipos_hvac_model.pkl")
@@ -15,7 +13,7 @@ MODEL_PATH = Path("src/data/equipos_hvac_model.pkl")
 # 🧠 FEATURES (SIN LEAKAGE)
 # ==============================
 FEATURES = [
-    "Tecnología","Region","Estado","Tipo de HVAC",
+    "Tecnologia","Region","Estado","Tipo de HVAC",
     "Latitud","Longitud",
 
     "TZ","TIY1","TIY2",
@@ -66,16 +64,11 @@ def entrenar(df: pd.DataFrame):
 
     model.fit(X, y)
 
-    pred = model.predict(X)
-    mae = mean_absolute_error(y, pred)
-
     joblib.dump({
         "model": model,
         "columns": X.columns.tolist(),
         "targets": TARGETS
     }, MODEL_PATH)
-
-    return mae
 
 
 # ==============================

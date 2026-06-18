@@ -44,8 +44,6 @@ def hay_datos_nuevos():
 # ==============================
 def ejecutar_entrenamiento():
     try:
-        log("🚀 Iniciando entrenamiento HVAC...")
-
         if not hay_datos_nuevos():
             log("⏭️ Sin datos nuevos, se omite entrenamiento", "SKIP")
             return

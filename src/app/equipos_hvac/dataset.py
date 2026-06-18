@@ -4,7 +4,6 @@ import pandas as pd
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.console import Console
 
 from ...api.gsepro import GSEClient
@@ -42,8 +41,6 @@ def limpiar_numeros(df, columnas):
 
 
 def detectar_columnas_corruptas(df, columnas):
-    console.print("\n[bold yellow]🔍 Detectando columnas corruptas...[/bold yellow]")
-
     for col in columnas:
         if col not in df.columns:
             continue
@@ -81,7 +78,7 @@ def normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
     return df.rename(columns={
         "idVbox": "Idvbox",
         "Ubicacion": "Ubicación",
-        "Tecnologia": "Tecnología"
+        "Tecnologia": "Tecnologia"
     })
 
 
@@ -96,9 +93,6 @@ def asegurar_columnas(df: pd.DataFrame, columnas: list):
 # 📊 CREAR DATASET
 # ==============================
 def crear_dataset():
-
-    console.rule("[bold cyan]📦 CREANDO DATASET HVAC")
-
     gse = GSEClient()
 
     cliente = next(
@@ -124,8 +118,6 @@ def crear_dataset():
     fecha_fin = hoy - timedelta(days=2)
 
     if fecha_inicio >= fecha_fin:
-        console.print("[yellow]Dataset ya actualizado[/yellow]")
-
         if DATA_PATH.exists():
             return pd.read_parquet(DATA_PATH)
 
@@ -146,10 +138,6 @@ def crear_dataset():
 
         for region in regiones:
             try:
-                console.print(
-                    f"[cyan]Procesando región {region['idRegion']} - {region['nombre']}[/cyan]"
-                )
-
                 result = procesar(
                     gse,
                     cliente["idCliente"],
@@ -167,7 +155,6 @@ def crear_dataset():
                 )
 
     if not resultados_globales:
-        console.print("[red]Sin resultados nuevos[/red]")
         return pd.DataFrame()
 
     # ==============================
@@ -217,7 +204,11 @@ def crear_dataset():
     # ==============================
     if DATA_PATH.exists():
         df_hist = pd.read_parquet(DATA_PATH)
-        df_total = pd.concat([df_hist, df_nuevo]).drop_duplicates()
+        df_total = (
+            pd.concat([df_hist, df_nuevo], ignore_index=True)
+            .drop_duplicates()
+            .reset_index(drop=True)
+        )
     else:
         df_total = df_nuevo
 
@@ -234,7 +225,5 @@ def crear_dataset():
     df_total.to_parquet(DATA_PATH, index=False)
 
     guardar_ultima_fecha(fecha_fin)
-
-    console.print(f"[green]Dataset listo: {len(df_total)} filas[/green]")
 
     return df_total
