@@ -50,6 +50,7 @@ def procesar(gse, cliente_id, region, inicio, fin):
             "Fecha": e.get("Fecha"),
             "Region": nombre,
             "Estado": e.get("Estado"),
+            "Ciudad": e.get("Ciudad"),
             "Latitud": e.get("Latitud"),
             "Longitud": e.get("Longitud"),
             "Tipo de HVAC": e.get("Tipo de HVAC"),

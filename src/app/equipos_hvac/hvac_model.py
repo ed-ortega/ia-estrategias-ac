@@ -13,7 +13,7 @@ MODEL_PATH = Path("src/data/equipos_hvac_model.pkl")
 # 🧠 FEATURES (SIN LEAKAGE)
 # ==============================
 FEATURES = [
-    "Tecnologia","Region","Estado","Tipo de HVAC",
+    "Tecnologia","Region","Estado","Ciudad","Tipo de HVAC",
     "Latitud","Longitud",
 
     "TZ","TIY1","TIY2",

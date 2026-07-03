@@ -339,24 +339,17 @@ def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: s
     rangos = RANGOS.get(grupo, RANGOS["NL"]).get(limite_alto, RANGOS["NL"][True])
     min_v, max_v = rangos.get(campo, (70, 77))
 
-    # Si es "No enfria", no aplicamos límite máximo (solo se respeta el mínimo)
-    no_upper_clamp = (estatus == "No enfria")
+    permitir_sobre_max = (estatus == "No enfria")
 
-    # --- Caso sin instrucción ---
+    # --- Sin instrucción ---
     if instruccion is None:
         if actual is None:
             return None, "Sin valor actual y sin instrucción → en blanco"
-        if actual < min_v:
-            return None, f"Valor actual {actual:.2f} < mínimo {min_v} → se deja en blanco"
-        if actual > max_v:
-            if no_upper_clamp:
-                # No hay instrucción de cambio, el valor excede el máximo y está en "No enfria" → se pone None
-                return None, f"Valor actual {actual:.2f} > máximo {max_v} y estatus='No enfria' sin instrucción → se deja en blanco"
-            else:
-                return max_v, f"Valor actual {actual:.2f} > máximo {max_v} → se ajusta a {max_v}"
+        if actual < min_v or actual > max_v:
+            return None, f"Valor actual {actual:.2f} fuera de rango [{min_v}, {max_v}] → se deja en blanco"
         return None, f"Valor actual {actual:.2f} dentro de rango, sin cambios"
 
-    # --- Caso con instrucción (fixed o delta) ---
+    # --- Con instrucción (fixed o delta) ---
     if isinstance(instruccion, tuple) and len(instruccion) == 2:
         tipo, valor = instruccion
 
@@ -365,12 +358,10 @@ def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: s
             if nuevo < min_v:
                 return None, f"Valor fijo {nuevo} < mínimo {min_v} → no se aplica, se deja en blanco"
             if nuevo > max_v:
-                if no_upper_clamp:
-                    # Aplicamos el fixed aunque exceda el máximo
+                if permitir_sobre_max:
                     return _safe_int(nuevo), f"Valor fijo {nuevo} excede máximo {max_v} pero estatus='No enfria' → se asigna {nuevo}"
                 else:
-                    nuevo = max_v
-                    return _safe_int(nuevo), f"Valor fijo excede máximo → se ajusta a {nuevo}"
+                    return None, f"Valor fijo {nuevo} > máximo {max_v} → no se aplica, se deja en blanco"
             return _safe_int(nuevo), f"Se asigna valor fijo {nuevo}"
 
         else:  # delta
@@ -378,15 +369,12 @@ def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: s
                 return None, "No hay valor actual para aplicar delta"
             nuevo = actual + valor
             if nuevo < min_v:
-                nuevo = min_v
-                return _safe_int(nuevo), f"Delta {valor:+} lleva el valor a {nuevo:.2f} por debajo del mínimo, se ajusta a {min_v}"
+                return None, f"Delta {valor:+} lleva el valor a {nuevo:.2f} por debajo del mínimo {min_v} → no se aplica, se deja en blanco"
             if nuevo > max_v:
-                if no_upper_clamp:
-                    # Aplicamos el delta aunque exceda el máximo
+                if permitir_sobre_max:
                     return _safe_int(nuevo), f"Delta {valor:+} excede máximo {max_v} pero estatus='No enfria' → se aplica: {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}"
                 else:
-                    nuevo = max_v
-                    return _safe_int(nuevo), f"Delta {valor:+} excede máximo → se ajusta a {nuevo}"
+                    return None, f"Delta {valor:+} excede máximo {max_v} → no se aplica, se deja en blanco"
             return _safe_int(nuevo), f"Aplicado delta {valor:+} → {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}"
 
     return None, "Instrucción inválida"
@@ -402,23 +390,23 @@ def _resumir_motivo(resultado, data_original, grupo, limite_alto):
             if original is not None:
                 min_v, max_v = rangos.get(campo, (70, 77))
                 if original < min_v:
-                    cambios.append(f"{nombre} no se modificó porque estaba debajo del mínimo ({min_v})")
+                    cambios.append(f"{nombre} debajo del mínimo")
                 elif original > max_v:
-                    cambios.append(f"{nombre} no se modificó porque excedía el máximo y no aplicaba cambio")
+                    cambios.append(f"{nombre} arriba del máximo y no aplicaba para cambio")
                 else:
                     cambios.append(f"{nombre} sin cambios")
             else:
-                cambios.append(f"{nombre} sin cambios (sin valor original)")
+                cambios.append(f"{nombre} sin cambios")
         else:
             if original is None:
-                cambios.append(f"{nombre} asignado a {nuevo} (sin valor previo)")
+                cambios.append(f"{nombre} sin valor previo")
             elif nuevo > original:
-                cambios.append(f"{nombre} aumentó de {original} a {nuevo}")
+                cambios.append(f"{nombre} aumentó")
             elif nuevo < original:
-                cambios.append(f"{nombre} disminuyó de {original} a {nuevo}")
+                cambios.append(f"{nombre} disminuyó")
             else:
-                cambios.append(f"{nombre} permaneció en {nuevo}")
-    return " | ".join(cambios)
+                cambios.append(f"{nombre} ajuste de límite")
+    return cambios
 
 # =============================================================================
 # FUNCIÓN PRINCIPAL

@@ -211,6 +211,7 @@ if __name__ == "__main__":
                 "fecha": prompt.get("Fecha"),
                 "region": prompt.get("Region"),
                 "estado": prompt.get("Estado"),
+                "ciudad": prompt.get("Ciudad"),
 
                 "latitud": clean_value(prompt.get("Latitud")),
                 "longitud": clean_value(prompt.get("Longitud")),
@@ -272,15 +273,15 @@ if __name__ == "__main__":
                 "queja": clean_value(resultado_final.get("queja")),
 
                 "resultado_sp": clean_value(resultado_final.get("SP", {}).get("SP")),
-                "motivo_sp": clean_value(resultado_final.get("SP", {}).get("motivo")),
+                "motivo_sp": clean_value(resultado_final.get("SP", {}).get("motivo")[0]),
                 "motivo_detallado_sp": clean_value(resultado_final.get("SP", {}).get("motivo_detallado")),
 
                 "resultado_spd1": clean_value(resultado_final.get("SPD1", {}).get("SPD01")),
-                "motivo_spd1": clean_value(resultado_final.get("SPD1", {}).get("motivo")),
+                "motivo_spd1": clean_value(resultado_final.get("SPD1", {}).get("motivo")[1]),
                 "motivo_detallado_spd1": clean_value(resultado_final.get("SPD1", {}).get("motivo_detallado")),
 
                 "resultado_spd2": clean_value(resultado_final.get("SPD2", {}).get("SPD02")),
-                "motivo_spd2": clean_value(resultado_final.get("SPD2", {}).get("motivo")),
+                "motivo_spd2": clean_value(resultado_final.get("SPD2", {}).get("motivo")[2]),
                 "motivo_detallado_spd2": clean_value(resultado_final.get("SPD2", {}).get("motivo_detallado")),
 
                 "resultado_banday1": clean_value(resultado_final.get("BandaY1")),
@@ -309,7 +310,7 @@ if __name__ == "__main__":
         resultado_sp, motivo_sp, motivo_detallado_sp,
         resultado_spd1, motivo_spd1, motivo_detallado_spd1,
         resultado_spd2, motivo_spd2, motivo_detallado_spd2,
-        resultado_banday1, resultado_banday2, control_gse
+        resultado_banday1, resultado_banday2, control_gse, ciudad
     )
     VALUES %s
     """
@@ -378,7 +379,8 @@ if __name__ == "__main__":
             r["motivo_detallado_spd2"],
             r["resultado_banday1"],
             r["resultado_banday2"],
-            r["control_gse"]
+            r["control_gse"],
+            r["ciudad"]
         )
         for r in resultados
     ]

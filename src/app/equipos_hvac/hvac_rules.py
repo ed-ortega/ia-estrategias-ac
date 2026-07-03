@@ -411,9 +411,9 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
 def clasificar_clima(temp_f):
     if temp_f > 78:
         return "Calor"
-    elif temp_f >= 68 and temp_f <= 78:
+    elif temp_f >= 68:
         return "Templado"
-    elif temp_f < 68:
+    else:
         return "Frio"
 
 # ==============================
@@ -554,7 +554,7 @@ def _sin_ajuste(resultado, motivo):
                 "SPD02": "",
                 "BandaY1": "",
                 "BandaY2": "",
-                "motivo": motivo,
+                "motivo": [motivo, motivo, motivo],
                 "motivo_detallado": motivo
             },
             "SPD1": {
@@ -564,7 +564,7 @@ def _sin_ajuste(resultado, motivo):
                 "SPD02": "",
                 "BandaY1": "",
                 "BandaY2": "",
-                "motivo": motivo,
+                "motivo": [motivo, motivo, motivo],
                 "motivo_detallado": motivo
             },
             "SPD2": {
@@ -574,7 +574,7 @@ def _sin_ajuste(resultado, motivo):
                 "SPD02": "",
                 "BandaY1": "",
                 "BandaY2": "",
-                "motivo": motivo,
+                "motivo": [motivo, motivo, motivo],
                 "motivo_detallado": motivo
             }
         }
@@ -632,7 +632,7 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
         )
 
     if cambios_sp >= 8:
-        motivo = f"{SIN_AJUSTE}: CambiosSP={cambios_sp} ≥ 8 → sin ajuste automático"
+        motivo = f"{SIN_AJUSTE}: CambiosSP > 8"
         return _sin_ajuste(
             resultado,
             motivo
