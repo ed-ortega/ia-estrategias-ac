@@ -69,7 +69,7 @@ def clean_int(value):
 # Entrenar conocimiento con los ultimos datos
 ejecutar_entrenamiento()
 
-# Obtener datos 
+# Obtener datos - 24
 ayer = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 
 if __name__ == "__main__":
@@ -162,6 +162,10 @@ if __name__ == "__main__":
                 .get("resultados_ia", {})
             )
 
+            algoritmo_tag_sp = ajustado.get("SP", {}).get("algoritmo_tag_SP", None)
+            algoritmo_tag_spd1 = ajustado.get("SPD1", {}).get("algoritmo_tag_SPD1", None)
+            algoritmo_tag_spd2 = ajustado.get("SPD2", {}).get("algoritmo_tag_SPD2", None)
+
             resultado_final = {
                 "estado": estado,
                 "queja": queja
@@ -174,7 +178,7 @@ if __name__ == "__main__":
                     "temp_prom": operacion.get(sensor, {}).get("temp_prom", ""),
                     "motivo" : ajustado.get(sensor, {}).get("motivo", ""),
                     "motivo_detallado": ajustado.get(sensor, {}).get("motivo_detallado", ""),
-                    "clima": ajustado.get(sensor, {}).get("clima", "")
+                    "clima": ajustado.get(sensor, {}).get("clima", ""),
                 }
 
                 if sensor == "SP":
@@ -275,19 +279,22 @@ if __name__ == "__main__":
                 "resultado_sp": clean_value(resultado_final.get("SP", {}).get("SP")),
                 "motivo_sp": clean_value(resultado_final.get("SP", {}).get("motivo")[0]),
                 "motivo_detallado_sp": clean_value(resultado_final.get("SP", {}).get("motivo_detallado")),
+                "estrategia_sp": algoritmo_tag_sp,
 
                 "resultado_spd1": clean_value(resultado_final.get("SPD1", {}).get("SPD01")),
                 "motivo_spd1": clean_value(resultado_final.get("SPD1", {}).get("motivo")[1]),
                 "motivo_detallado_spd1": clean_value(resultado_final.get("SPD1", {}).get("motivo_detallado")),
+                "estrategia_spd1": algoritmo_tag_spd1,
 
                 "resultado_spd2": clean_value(resultado_final.get("SPD2", {}).get("SPD02")),
                 "motivo_spd2": clean_value(resultado_final.get("SPD2", {}).get("motivo")[2]),
                 "motivo_detallado_spd2": clean_value(resultado_final.get("SPD2", {}).get("motivo_detallado")),
+                "estrategia_spd2": algoritmo_tag_spd2,
 
                 "resultado_banday1": clean_value(resultado_final.get("BandaY1")),
                 "resultado_banday2": clean_value(resultado_final.get("BandaY2")),
             }
-
+            
             resultados.append(clean_data)
 
         except Exception as e:
@@ -307,9 +314,9 @@ if __name__ == "__main__":
         clima_spd1, temp_prom_spd1, operacion_pct_spd1,
         clima_spd2, temp_prom_spd2, operacion_pct_spd2,
         estatus, queja,
-        resultado_sp, motivo_sp, motivo_detallado_sp,
-        resultado_spd1, motivo_spd1, motivo_detallado_spd1,
-        resultado_spd2, motivo_spd2, motivo_detallado_spd2,
+        resultado_sp, motivo_sp, motivo_detallado_sp, estrategia_sp,
+        resultado_spd1, motivo_spd1, motivo_detallado_spd1, estrategia_spd1,
+        resultado_spd2, motivo_spd2, motivo_detallado_spd2, estrategia_spd2,
         resultado_banday1, resultado_banday2, control_gse, ciudad
     )
     VALUES %s
@@ -371,12 +378,15 @@ if __name__ == "__main__":
             r["resultado_sp"],
             r["motivo_sp"],
             r["motivo_detallado_sp"],
+            r["estrategia_sp"],
             r["resultado_spd1"],
             r["motivo_spd1"],
             r["motivo_detallado_spd1"],
+            r["estrategia_spd1"],
             r["resultado_spd2"],
             r["motivo_spd2"],
             r["motivo_detallado_spd2"],
+            r["estrategia_spd2"],
             r["resultado_banday1"],
             r["resultado_banday2"],
             r["control_gse"],

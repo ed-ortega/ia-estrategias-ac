@@ -63,55 +63,94 @@ console = Console()
 # ==============================
 # 🗺️ MAPEO REGIÓN → GRUPO
 # ==============================
-REGION_A_GRUPO: dict[str, str] = {
-    # NL / Noreste / Mexicali / Sonora / GDL
-    "nuevo leon":       "NL",
-    "nuevo león":       "NL",
-    "nl":               "NL",
-    "noreste":          "NL",
-    "monterrey":        "NL",
-    "mexicali":         "NL",
-    "sonora":           "NL",
-    "hermosillo":       "NL",
-    "gdl":              "NL",
-    "guadalajara":      "NL",
-    "jalisco":          "NL",
-    # Sureste
-    "sureste":          "Sureste",
-    "yucatan":          "Sureste",
-    "yucatán":          "Sureste",
-    "merida":           "Sureste",
-    "mérida":           "Sureste",
-    "quintana roo":     "Sureste",
-    "cancun":           "Sureste",
-    "cancún":           "Sureste",
-    # BC
-    "bc":               "BC",
-    "baja california":  "BC",
-    "tijuana":          "BC",
-    "ensenada":         "BC",
-    "rosarito":         "BC",
-    # Metro
-    "metro":            "Metro",
-    "cdmx":             "Metro",
-    "ciudad de mexico": "Metro",
-    "ciudad de méxico": "Metro",
-    "puebla":           "Metro",
-    "morelos":          "Metro",
-    "estado de mexico": "Metro",
-    "estado de méxico": "Metro",
-    "edomex":           "Metro",
-    "Mexico":           "Metro",
-    "México":           "Metro",
-    "mexico":           "Metro",
-    "méxico":           "Metro",
+REGION_A_GRUPO = {
+    ("COAHUILA", "SALTILLO"): "NL",
+    ("TAMAULIPAS", "REYNOSA"): "NL",
+    ("COAHUILA", "TORREON"): "NL",
+    ("COAHUILA", "RAMOS ARIZPE"): "NL",
+    ("TAMAULIPAS", "MATAMOROS"): "NL",
+    ("NUEVO LEÓN", "MONTERREY"): "NL",
+    ("NUEVO LEÓN", "GENERAL ZUAZUA"): "NL",
+    ("NUEVO LEÓN", "APODACA"): "NL",
+    ("NUEVO LEÓN", "GUADALUPE"): "NL",
+    ("NUEVO LEÓN", "SANTA CATARINA"): "NL",
+    ("NUEVO LEÓN", "SAN PEDRO GARZA GARCIA"): "NL",
+    ("NUEVO LEÓN", "GENERAL ESCOBEDO"): "NL",
+    ("NUEVO LEÓN", "ALLENDE"): "NL",
+    ("NUEVO LEÓN", "SAN NICOLAS DE LOS GARZA"): "NL",
+    ("NUEVO LEÓN", "JUAREZ"): "NL",
+    ("NUEVO LEÓN", "SANTIAGO"): "NL",
+    ("NUEVO LEÓN", "CADEREYTA JIMENEZ"): "NL",
+    ("NUEVO LEÓN", "PESQUERIA"): "NL",
+    ("NUEVO LEÓN", "MONTEMORELOS"): "NL",
+    ("NUEVO LEÓN", "GARCIA"): "NL",
+    ("NUEVO LEÓN", "CIENEGA DE FLORES"): "NL",
+    ("NUEVO LEÓN", "CARMEN"): "NL",
+    ("NUEVO LEÓN", "SALINAS VICTORIA"): "NL",
+    ("JALISCO", "TLAQUEPAQUE"): "NL",
+    ("JALISCO", "GUADALAJARA"): "NL",
+    ("JALISCO", "ZAPOPAN"): "NL",
+    ("JALISCO", "TLAJOMULCO DE ZUÑIGA"): "NL",
+    ("JALISCO", "EL SALTO"): "NL",
+    ("BAJA CALIFORNIA", "MEXICALI"): "NL",
+    ("SONORA", "HERMOSILLO"): "NL",
+
+    ("YUCATÁN", "KANASIN"): "Sureste",
+    ("QUINTANA ROO", "BENITO JUAREZ"): "Sureste",
+    ("YUCATÁN", "MERIDA"): "Sureste",
+    ("QUINTANA ROO", "TULUM"): "Sureste",
+    ("QUINTANA ROO", "SOLIDARIDAD"): "Sureste",
+    ("QUINTANA ROO", "PUERTO MORELOS"): "Sureste",
+    ("YUCATÁN", "SEYE"): "Sureste",
+    ("YUCATÁN", "CONKAL"): "Sureste",
+    ("QUINTANA ROO", "COZUMEL"): "Sureste",
+
+    ("BAJA CALIFORNIA", "TIJUANA"): "BC",
+    ("BAJA CALIFORNIA", "PLAYAS DE ROSARITO"): "BC",
+    ("BAJA CALIFORNIA", "ENSENADA"): "BC",
+
+    ("CIUDAD DE MÉXICO", "BENITO JUAREZ"): "Metro",
+    ("CIUDAD DE MÉXICO", "CUAUHTEMOC"): "Metro",
+    ("CIUDAD DE MÉXICO", "LA MAGDALENA CONTRERAS"): "Metro",
+    ("CIUDAD DE MÉXICO", "COYOACAN"): "Metro",
+    ("CIUDAD DE MÉXICO", "MIGUEL HIDALGO"): "Metro",
+    ("CIUDAD DE MÉXICO", "ALVARO OBREGON"): "Metro",
+    ("CIUDAD DE MÉXICO", "TLALPAN"): "Metro",
+    ("MÉXICO", "ATIZAPAN DE ZARAGOZA"): "Metro",
+    ("CIUDAD DE MÉXICO", "IZTAPALAPA"): "Metro",
+    ("CIUDAD DE MÉXICO", "AZCAPOTZALCO"): "Metro",
+    ("PUEBLA", "SAN ANDRES CHOLULA"): "Metro",
+    ("CIUDAD DE MÉXICO", "CUAJIMALPA DE MORELOS"): "Metro",
+    ("MÉXICO", "TOLUCA"): "Metro",
+    ("MORELOS", "TEMIXCO"): "Metro",
+    ("CIUDAD DE MÉXICO", "VENUSTIANO CARRANZA"): "Metro",
+    ("PUEBLA", "CORONANGO"): "Metro",
+    ("MÉXICO", "CALIMAYA"): "Metro",
+    ("MÉXICO", "SAN MATEO ATENCO"): "Metro",
+    ("MÉXICO", "NAUCALPAN DE JUAREZ"): "Metro",
+    ("MORELOS", "XOCHITEPEC"): "Metro",
+    ("PUEBLA", "PUEBLA"): "Metro",
+    ("MORELOS", "CUERNAVACA"): "Metro",
+    ("CIUDAD DE MÉXICO", "XOCHIMILCO"): "Metro",
+    ("MÉXICO", "HUIXQUILUCAN"): "Metro",
+    ("PUEBLA", "SAN PEDRO CHOLULA"): "Metro",
+    ("MÉXICO", "COACALCO DE BERRIOZABAL"): "Metro",
+    ("MÉXICO", "LERMA"): "Metro",
+    ("MÉXICO", "METEPEC"): "Metro",
+    ("CIUDAD DE MÉXICO", "IZTACALCO"): "Metro",
+    ("CIUDAD DE MÉXICO", "GUSTAVO A MADERO"): "Metro",
+    ("MÉXICO", "TLALNEPANTLA DE BAZ"): "Metro",
+    ("MÉXICO", "CUAUTITLAN IZCALLI"): "Metro",
+    ("MÉXICO", "ECATEPEC DE MORELOS"): "Metro",
+    ("MÉXICO", "TULTITLAN"): "Metro",
 }
 
-def _grupo(region: str | None) -> str:
+def _grupo(estado: str | None, ciudad: str | None) -> str:
     """Normaliza la región al grupo correspondiente. Default: NL."""
-    if not region:
+    if not estado or not ciudad:
         return "NL"
-    return REGION_A_GRUPO.get(region.lower().strip(), "NL")
+    
+    return REGION_A_GRUPO.get((estado.strip().upper(), ciudad.strip().upper()))
 
 # ==============================
 # 🕐 UTILIDADES HORARIAS
@@ -582,7 +621,8 @@ def _sin_ajuste(resultado, motivo):
 
 def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
 
-    grupo       = _grupo(data.get("Estado"))
+    grupo       = _grupo(data.get("Estado"), data.get("Ciudad"))
+
     limite_alto = bool(data.get("limite_sp_alto", True))
     alerta_ti   = (data.get("AlertaTIdanado") or 0) > 0
     ti_offline = (data.get("TI Offline") or 0) > 0

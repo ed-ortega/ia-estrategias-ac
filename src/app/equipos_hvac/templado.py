@@ -57,228 +57,228 @@ REGLAS_TEMPLADO["NL"] = {"SP": [], "SPD01": [], "SPD02": []}
 
 REGLAS_TEMPLADO["NL"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Norte-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Norte-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 60)), None),
+               lambda c: _pct_cmp(c, '>', 60)), (None, None, "Norte-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 60)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 60)), ("zt_sp", -1.0, "Norte-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Norte-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Norte-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 60)), None),
+               lambda c: _pct_cmp(c, '>', 60)), (None, None, "Norte-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 60)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 60)), ("zt_sp", -1.0, "Norte-No enfria4")),
 ])
 REGLAS_TEMPLADO["NL"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +0.5, "Norte-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +0.5, "Norte-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (30, 70))), None),
+               lambda c: _pct_cmp(c, 'range', (30, 70))), (None, None, "Norte-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -1.0)),
+               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -1.0, "Norte-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0, "Norte-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0, "Norte-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (30, 50))), None),
+               lambda c: _pct_cmp(c, 'range', (30, 50))), (None, None, "Norte-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -0.5)),
+               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -0.5, "Norte-No enfria4")),
 ])
 REGLAS_TEMPLADO["NL"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 85)), None),
+               lambda c: _pct_cmp(c, '>', 85)), (None, None, "Norte-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 85)), ("zt_spd02", +0.5)),
+               lambda c: _pct_cmp(c, '>', 85)), ("zt_spd02", +0.5, "Norte-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (45, 85))), None),
+               lambda c: _pct_cmp(c, 'range', (45, 85))), (None, None, "Norte-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 45)), ("zt_spd02", -1.0)),
+               lambda c: _pct_cmp(c, '<', 45)), ("zt_spd02", -1.0, "Norte-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0, "Norte-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0, "Norte-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (45, 70))), None),
+               lambda c: _pct_cmp(c, 'range', (45, 70))), (None, None, "Norte-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 45)), ("zt_spd02", -0.5)),
+               lambda c: _pct_cmp(c, '<', 45)), ("zt_spd02", -0.5, "Norte-No enfria4")),
 ])
 
 # ---------- REGIÓN SURESTE ----------
 REGLAS_TEMPLADO["Sureste"] = {"SP": [], "SPD01": [], "SPD02": []}
 REGLAS_TEMPLADO["Sureste"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Sureste-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Sureste-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 70)), None),
+               lambda c: _pct_cmp(c, '>', 70)), (None, None, "Sureste-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 70)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 70)), ("zt_sp", -1.0, "Sureste-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Sureste-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Sureste-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 70)), None),
+               lambda c: _pct_cmp(c, '>', 70)), (None, None, "Sureste-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 70)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 70)), ("zt_sp", -1.0, "Sureste-No enfria4")),
 ])
 REGLAS_TEMPLADO["Sureste"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 80)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '>', 80)), ("zt_spd01", +0.5, "Sureste-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 80)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '>', 80)), ("zt_spd01", +0.5, "Sureste-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (50, 80))), None),
+               lambda c: _pct_cmp(c, 'range', (50, 80))), (None, None, "Sureste-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 50)), ("zt_spd01", -1.0)),
+               lambda c: _pct_cmp(c, '<', 50)), ("zt_spd01", -1.0, "Sureste-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd01", +1.0, "Sureste-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +1.0, "Sureste-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (50, 60))), None),
+               lambda c: _pct_cmp(c, 'range', (50, 60))), (None, None, "Sureste-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 50)), ("zt_spd01", -0.5)),
+               lambda c: _pct_cmp(c, '<', 50)), ("zt_spd01", -0.5, "Sureste-No enfria4")),
 ])
 REGLAS_TEMPLADO["Sureste"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 90)), None),
+               lambda c: _pct_cmp(c, '>', 90)), (None, None, "Sureste-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 90)), ("zt_spd02", +0.5)),
+               lambda c: _pct_cmp(c, '>', 90)), ("zt_spd02", +0.5, "Sureste-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (60, 90))), None),
+               lambda c: _pct_cmp(c, 'range', (60, 90))), (None, None, "Sureste-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 60)), ("zt_spd02", -1.0)),
+               lambda c: _pct_cmp(c, '<', 60)), ("zt_spd02", -1.0, "Sureste-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 90)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 90)), ("zt_spd02", +1.0, "Sureste-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0, "Sureste-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (60, 70))), None),
+               lambda c: _pct_cmp(c, 'range', (60, 70))), (None, None, "Sureste-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 60)), ("zt_spd02", -0.5)),
+               lambda c: _pct_cmp(c, '<', 60)), ("zt_spd02", -0.5, "Sureste-No enfria4")),
 ])
 
 # ---------- REGIÓN BC ----------
 REGLAS_TEMPLADO["BC"] = {"SP": [], "SPD01": [], "SPD02": []}
 REGLAS_TEMPLADO["BC"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "BC-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "BC-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 30)), None),
+               lambda c: _pct_cmp(c, '>', 30)), (None, None, "BC-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 30)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 30)), ("zt_sp", -1.0, "BC-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "BC-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "BC-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 30)), None),
+               lambda c: _pct_cmp(c, '>', 30)), (None, None, "BC-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 30)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 30)), ("zt_sp", -1.0, "BC-No enfria4")),
 ])
 REGLAS_TEMPLADO["BC"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +0.5, "BC-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd01", +0.5, "BC-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (10, 40))), None),
+               lambda c: _pct_cmp(c, 'range', (10, 40))), (None, None, "BC-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 10)), ("zt_spd01", -1.0)),
+               lambda c: _pct_cmp(c, '<', 10)), ("zt_spd01", -1.0, "BC-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0, "BC-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd01", +1.0, "BC-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (10, 40))), None),
+               lambda c: _pct_cmp(c, 'range', (10, 40))), (None, None, "BC-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 10)), ("zt_spd01", -0.5)),
+               lambda c: _pct_cmp(c, '<', 10)), ("zt_spd01", -0.5, "BC-No enfria4")),
 ])
 REGLAS_TEMPLADO["BC"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 60)), None),
+               lambda c: _pct_cmp(c, '>', 60)), (None, None, "BC-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd02", +0.5)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd02", +0.5, "BC-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (20, 50))), None),
+               lambda c: _pct_cmp(c, 'range', (20, 50))), (None, None, "BC-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 20)), ("zt_spd02", -1.0)),
+               lambda c: _pct_cmp(c, '<', 20)), ("zt_spd02", -1.0, "BC-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +1.0, "BC-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd02", +1.0, "BC-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (20, 50))), None),
+               lambda c: _pct_cmp(c, 'range', (20, 50))), (None, None, "BC-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 20)), ("zt_spd02", -0.5)),
+               lambda c: _pct_cmp(c, '<', 20)), ("zt_spd02", -0.5, "BC-No enfria4")),
 ])
 
 # ---------- REGIÓN METRO ----------
 REGLAS_TEMPLADO["Metro"] = {"SP": [], "SPD01": [], "SPD02": []}
 REGLAS_TEMPLADO["Metro"]["SP"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Centro-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Centro-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 50)), None),
+               lambda c: _pct_cmp(c, '>', 50)), (None, None, "Centro-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 50)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 50)), ("zt_sp", -1.0, "Centro-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Centro-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: c['pct'] is None), None),
+               lambda c: c['pct'] is None), (None, None, "Centro-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 50)), None),
+               lambda c: _pct_cmp(c, '>', 50)), (None, None, "Centro-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 50)), ("zt_sp", -1.0)),
+               lambda c: _pct_cmp(c, '<', 50)), ("zt_sp", -1.0, "Centro-No enfria4")),
 ])
 REGLAS_TEMPLADO["Metro"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +0.5, "Centro-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +0.5)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +0.5, "Centro-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (30, 50))), None),
+               lambda c: _pct_cmp(c, 'range', (30, 50))), (None, None, "Centro-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -1.0)),
+               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -1.0, "Centro-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd01", +1.0, "Centro-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0)),
+               lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0, "Centro-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (30, 50))), None),
+               lambda c: _pct_cmp(c, 'range', (30, 50))), (None, None, "Centro-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -0.5)),
+               lambda c: _pct_cmp(c, '<', 30)), ("zt_spd01", -0.5, "Centro-No enfria4")),
 ])
 REGLAS_TEMPLADO["Metro"]["SPD02"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 70)), None),
+               lambda c: _pct_cmp(c, '>', 70)), (None, None, "Centro-Ok1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +0.5)),
+               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +0.5, "Centro-Ok2")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, 'range', (40, 60))), None),
+               lambda c: _pct_cmp(c, 'range', (40, 60))), (None, None, "Centro-Ok3")),
     (_cond_and(lambda c: c['estatus'] == "Ok",
-               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd02", -1.0)),
+               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd02", -1.0, "Centro-Ok4")),
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 70)), ("zt_spd02", +1.0, "Centro-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +1.0)),
+               lambda c: _pct_cmp(c, '>', 60)), ("zt_spd02", +1.0, "Centro-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, 'range', (40, 60))), None),
+               lambda c: _pct_cmp(c, 'range', (40, 60))), (None, None, "Centro-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd02", -0.5)),
+               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd02", -0.5, "Centro-No enfria4")),
 ])
 
 # =============================================================================
@@ -336,57 +336,66 @@ def _valor_actual_data(campo: str, data: dict) -> float | None:
     except (TypeError, ValueError):
         return None
 
-def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: str, limite_alto: bool, data: dict, prediccion: dict, estatus: str | None = None) -> tuple[int | None, str]:
+def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: str, limite_alto: bool, data: dict, prediccion: dict = None, estatus: str | None = None) -> tuple[int | None, str, str | None]:
     rangos = RANGOS.get(grupo, RANGOS["NL"]).get(limite_alto, RANGOS["NL"][True])
     min_v, max_v = rangos.get(campo, (70, 77))
+    permitir_sobre_max = (estatus == "No enfria")
+    algoritmo_tag = None
 
-    # Indicador de si se permite superar el límite superior (solo para "No enfria")
-    permitir_exceder_max = (estatus == "No enfria")
-
-    # --- Caso sin instrucción ---
+    # Sin instrucción
     if instruccion is None:
         if actual is None:
-            return None, "Sin valor actual y sin instrucción → en blanco"
-        if actual < min_v:
-            return None, f"Valor actual {actual:.2f} < mínimo {min_v} → se deja en blanco"
-        if actual > max_v:
-            return None, f"Valor actual {actual:.2f} > máximo {max_v} → se deja en blanco"
-        return None, f"Valor actual {actual:.2f} dentro de rango, sin cambios"
+            return None, "Sin valor actual y sin instrucción → en blanco", None
+        if actual < min_v or actual > max_v:
+            return None, f"Valor actual {actual:.2f} fuera de rango [{min_v}, {max_v}] → se deja en blanco", None
+        return None, f"Valor actual {actual:.2f} dentro de rango, sin cambios", None
 
-    # --- Caso con instrucción ---
-    if isinstance(instruccion, tuple) and len(instruccion) == 2:
-        tipo, valor = instruccion
+    # Desempaquetar instrucción
+    if isinstance(instruccion, tuple):
+        if len(instruccion) == 2:
+            tipo, valor = instruccion
+            algoritmo_tag = None
+        elif len(instruccion) >= 3:
+            tipo, valor, algoritmo_tag = instruccion[0], instruccion[1], instruccion[2]
+        else:
+            return None, "Instrucción inválida: longitud de tupla incorrecta", None
+    else:
+        return None, "Instrucción inválida", None
 
-        if tipo == "fixed":
-            nuevo = float(valor)  # aseguramos float
-            # No se necesita valor base
+    # Si valor es None, se comporta como sin ajuste (solo validar rango)
+    if valor is None:
+        if actual is None:
+            return None, "Sin valor actual y sin ajuste → en blanco", algoritmo_tag
+        if actual < min_v or actual > max_v:
+            return None, f"Valor actual {actual:.2f} fuera de rango [{min_v}, {max_v}] → se deja en blanco", algoritmo_tag
+        return None, f"Valor actual {actual:.2f} dentro de rango, sin cambios", algoritmo_tag
 
-        else:  # delta
-            # Determinar el valor base
-            if actual is None:
-                pred_val = prediccion.get(campo)
-                if pred_val is None:
-                    return None, "No hay valor actual ni predicción para aplicar delta"
+    # Si es fixed, asignar directamente
+    if tipo == "fixed":
+        nuevo = float(valor)
+        if nuevo < min_v or (nuevo > max_v and not permitir_sobre_max):
+            return None, f"Valor fijo {nuevo:.2f} fuera de rango → no se aplica", algoritmo_tag
+        return _safe_int(nuevo), f"Valor fijo asignado: {nuevo:.2f} → {_safe_int(nuevo)}", algoritmo_tag
+
+    # Delta: aplicar suma
+    if actual is None:
+        # Si no hay valor actual, usar predicción si existe
+        if prediccion is not None:
+            pred_val = prediccion.get(campo)
+            if pred_val is not None:
                 actual = _safe_float(pred_val, None)
-                if actual is None:
-                    return None, "Predicción inválida"
-            nuevo = actual + valor
+        if actual is None:
+            return None, "No hay valor actual ni predicción para aplicar delta", algoritmo_tag
 
-        # --- Validación de límites ---
-        if nuevo < min_v:
-            return None, f"Valor calculado {nuevo:.2f} < mínimo {min_v} → no se aplica, se deja en blanco"
-
-        if nuevo > max_v:
-            if permitir_exceder_max:
-                # Solo en "No enfria" se aplica aunque supere el máximo
-                return _safe_int(nuevo), f"Valor {nuevo:.2f} excede máximo {max_v} pero estatus='No enfria' → se asigna {_safe_int(nuevo)}"
-            else:
-                return None, f"Valor calculado {nuevo:.2f} > máximo {max_v} → no se aplica, se deja en blanco"
-
-        # Dentro del rango permitido
-        return _safe_int(nuevo), f"Aplicado: {nuevo:.2f} → {_safe_int(nuevo)}"
-
-    return None, "Instrucción inválida"
+    nuevo = actual + valor
+    if nuevo < min_v:
+        return None, f"Delta {valor:+} lleva el valor a {nuevo:.2f} por debajo del mínimo {min_v} → no se aplica, se deja en blanco", algoritmo_tag
+    if nuevo > max_v:
+        if permitir_sobre_max:
+            return _safe_int(nuevo), f"Delta {valor:+} excede máximo {max_v} pero estatus='No enfria' → se aplica: {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}", algoritmo_tag
+        else:
+            return None, f"Delta {valor:+} excede máximo {max_v} → no se aplica, se deja en blanco", algoritmo_tag
+    return _safe_int(nuevo), f"Aplicado delta {valor:+} → {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}", algoritmo_tag
 
 def _resumir_motivo(resultado, data_original, grupo, limite_alto):
     """Genera un motivo descriptivo basado en los cambios aplicados."""
@@ -465,9 +474,16 @@ def clima_templado(data, alerta_ti, pct, queja, grupo, limite_alto, prediccion, 
             except Exception:
                 continue
         actual = _valor_actual_data(campo, data)
-        nuevo, msg = _aplicar_instruccion(campo, instruccion, actual, grupo, limite_alto, data, prediccion, estatus)
+        nuevo, msg, algoritmo_tag = _aplicar_instruccion(campo, instruccion, actual, grupo, limite_alto, data, prediccion, estatus)
         resultado_parcial[nombre_salida] = nuevo if nuevo is not None else ""
-        explicacion.append(f"{nombre_salida}: {msg}")
+        name_algoritmo_tag = (
+            "SP" if nombre_salida == "SP"
+            else "SPD1" if nombre_salida == "SPD01"
+            else "SPD2" if nombre_salida == "SPD02"
+            else None
+        ) 
+        resultado_parcial[f"algoritmo_tag_{name_algoritmo_tag}"] = algoritmo_tag
+        explicacion.append(f"{nombre_salida}: {msg}" + (f" (algoritmo: {algoritmo_tag})" if algoritmo_tag else ""))
 
     resultado.update(resultado_parcial)
     motivo_resumen = _resumir_motivo(resultado, data, grupo, limite_alto)
