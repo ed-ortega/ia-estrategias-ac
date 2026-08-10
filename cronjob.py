@@ -69,7 +69,7 @@ def clean_int(value):
 # Entrenar conocimiento con los ultimos datos
 ejecutar_entrenamiento()
 
-# Obtener datos - 24
+# Obtener datos un dia antes
 ayer = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 
 if __name__ == "__main__":
@@ -106,7 +106,7 @@ if __name__ == "__main__":
             todos_los_equipos.extend(equipos)
 
         except Exception as e:
-            print(f"💥 Error API - [{ayer}] - ({nombre}): {e}")
+            print(f"💥 Error API - [{ayer}] - ({nombre}) {idRegion}: {e}")
 
     # DataFrame unificado
     df = pd.DataFrame(todos_los_equipos)
