@@ -43,29 +43,25 @@ zip -r proyecto_hvac.zip . \
 -x ".DS_Store"
 ```
 
-uvicorn server:app --reload
-
-http://127.0.0.1:8000/openapi.json
-
 {
-            "idCliente": 160,
-            "nombre": "GSE - Seven Eleven",
-            "regiones": [
-                {
-                    "idRegion": 606,
-                    "nombre": "PACIFICO"
-                },
-                {
-                    "idRegion": 698,
-                    "nombre": "NUEVO LEÓN "
-                },
-                {
-                    "idRegion": 707,
-                    "nombre": "CENTRO-PENÍNSULA"
-                },
-                {
-                    "idRegion": 708,
-                    "nombre": "NORESTE"
-                }
-            ]
+    "idCliente": 160,
+    "nombre": "GSE - Seven Eleven",
+    "regiones": [
+        {
+            "idRegion": 606,
+            "nombre": "PACIFICO"
         },
+        {
+            "idRegion": 698,
+            "nombre": "NUEVO LEÓN "
+        },
+        {
+            "idRegion": 707,
+            "nombre": "CENTRO-PENÍNSULA"
+        },
+        {
+            "idRegion": 708,
+            "nombre": "NORESTE"
+        }
+    ]
+},
