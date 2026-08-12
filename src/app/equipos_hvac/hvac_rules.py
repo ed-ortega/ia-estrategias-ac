@@ -312,7 +312,7 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
         # =========================
         try:
             clima = obtener_clima(lat, lon, provider="openmeteo")
-
+            
             if (
                 "hourly" not in clima
                 or "time" not in clima["hourly"]
