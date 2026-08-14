@@ -114,7 +114,7 @@ if __name__ == "__main__":
     console.print(f"✅ Registros encontrados: {len(df)}\n")
 
     resultados = []
-
+    equipos_excluidos = 0
     # ==============================
     # 🔁 RECORRER EQUIPOS
     # ==============================
@@ -123,7 +123,15 @@ if __name__ == "__main__":
         try:
 
             prompt = row.to_dict()
+            # ==============================
+            # EQUIPOS EXCLUIDOS
+            # ==============================
+            tecnologia = str(prompt.get("Tecnologia", "")).strip().lower()
 
+            if tecnologia in ("sensibo", "n/a"):
+                equipos_excluidos += 1
+                continue
+            
             prompt = completar_prompt(prompt)
 
             # ==============================
@@ -405,6 +413,7 @@ if __name__ == "__main__":
     conn.commit()
 
     print(f"✅ {len(valores)} registros insertados")
-
+    console.log(f"{equipos_excluidos} equipos excluidos")
+    console.log(f"Total procesado: {equipos_excluidos + len(valores)}")
     cursor.close()
     conn.close()

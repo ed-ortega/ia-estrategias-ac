@@ -632,7 +632,7 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     queja   = evaluar_queja(data)
 
     resultado = dict(prediccion)  # copia de la predicción normalizada
-    SIN_AJUSTE = "Sin ajuste"
+    SIN_AJUSTE = "Sin cambios"
     motivo    = SIN_AJUSTE
 
     if estatus == "Sin control GSE":

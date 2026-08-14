@@ -407,13 +407,13 @@ def _resumir_motivo(resultado, data_original, grupo, limite_alto):
             if original is not None:
                 min_v, max_v = rangos.get(campo, (70, 77))
                 if original < min_v:
-                    cambios.append(f"{nombre} debajo del mínimo")
+                    cambios.append(f"Sin cambios: {nombre} debajo del límite mínimo")
                 elif original > max_v:
-                    cambios.append(f"{nombre} arriba del máximo y no aplicaba para cambio")
+                    cambios.append(f"Sin cambios: {nombre} arriba del límite máximo")
                 else:
-                    cambios.append(f"{nombre} sin cambios")
+                    cambios.append(f"Cumple con estrategia")
             else:
-                cambios.append(f"{nombre} sin cambios")
+                cambios.append(f"No cumple con algoritmo")
         else:
             if original is None:
                 cambios.append(f"{nombre} sin valor previo")
