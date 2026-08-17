@@ -150,7 +150,8 @@ if __name__ == "__main__":
 
             resultado_final = {
                 "estado": estado,
-                "queja": queja
+                "queja": queja,
+                "origen_clima": operacion.get("origen_clima", "desconocido")
             }
 
             for sensor in ["SP", "SPD1", "SPD2"]:

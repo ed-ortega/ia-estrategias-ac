@@ -1,6 +1,7 @@
 import math
 from ...api.openmateo import obtener_clima
 from datetime import datetime, time
+from pathlib import Path
 from rich.console import Console
 import pandas as pd
 import requests
@@ -59,6 +60,321 @@ def cargar_quejas_api() -> pd.DataFrame:
 df_quejas = cargar_quejas_api()
 
 console = Console()
+
+# ==============================
+# 📦 HISTÓRICO HVAC
+# ==============================
+HISTORICO_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "data"
+    / "hvac_historico.parquet"
+)
+
+_HVAC_HISTORICO = None
+
+def cargar_historico_hvac():
+
+    global _HVAC_HISTORICO
+
+    if _HVAC_HISTORICO is not None:
+        return _HVAC_HISTORICO
+
+    if not HISTORICO_PATH.exists():
+        raise FileNotFoundError(
+            f"No se encontró histórico HVAC: {HISTORICO_PATH}"
+        )
+
+    df = pd.read_parquet(HISTORICO_PATH)
+
+    df["Fecha"] = pd.to_datetime(
+        df["Fecha"],
+        errors="coerce"
+    )
+
+    df["_ubicacion_norm"] = (
+        df["Ubicación"]
+        .fillna("")
+        .map(lambda x: normalizar_estado(str(x)))
+    )
+
+    df["_tipo_norm"] = (
+        df["Tipo de HVAC"]
+        .fillna("")
+        .map(lambda x: normalizar_estado(str(x)))
+    )
+
+    df["_region_norm"] = (
+        df["Region"]
+        .fillna("")
+        .map(lambda x: normalizar_estado(str(x)))
+    )   
+
+    df["_mes"] = df["Fecha"].dt.month
+    
+    _HVAC_HISTORICO = df
+
+    return _HVAC_HISTORICO
+
+def clima_valido(clima):
+
+    if not isinstance(clima, dict):
+        return False
+
+    hourly = clima.get("hourly")
+
+    if not isinstance(hourly, dict):
+        return False
+
+    tiempos = hourly.get("time")
+    temperaturas = hourly.get("apparent_temperature")
+
+    if tiempos is None or temperaturas is None:
+        return False
+
+    if len(tiempos) == 0 or len(temperaturas) == 0:
+        return False
+
+    if len(tiempos) != len(temperaturas):
+        return False
+
+    temperaturas_validas = pd.to_numeric(
+        pd.Series(temperaturas),
+        errors="coerce"
+    )
+
+    if temperaturas_validas.notna().sum() == 0:
+        return False
+
+    return True
+
+def obtener_clima_historico(data: dict):
+
+    historico = cargar_historico_hvac()
+
+    # =========================
+    # IDENTIFICAR REGISTRO
+    # =========================
+    idvbox = data.get("Idvbox")
+
+    if idvbox is None:
+        idvbox = data.get("idVbox")
+
+    ubicacion = (
+        data.get("Ubicacion")
+        or data.get("Ubicación")
+        or ""
+    )
+
+    tipo_hvac = data.get("Tipo de HVAC") or ""
+    region = data.get("Region") or ""
+
+    fecha = pd.to_datetime(
+        data.get("Fecha"),
+        errors="coerce"
+    )
+
+    if pd.isna(fecha):
+        fecha = pd.Timestamp.today()
+
+    mes = fecha.month
+
+    # =========================
+    # NORMALIZAR TEXTO
+    # =========================
+
+    ubicacion_norm = normalizar_estado(ubicacion)
+    tipo_norm = normalizar_estado(tipo_hvac)
+    region_norm = normalizar_estado(region)
+
+    # Creamos columnas temporales normalizadas
+    h = historico
+
+    # =========================
+    # 1. MISMO EQUIPO FÍSICO
+    # =========================
+    mismo_equipo = h[
+        (h["Idvbox"] == idvbox)
+        & (h["_ubicacion_norm"] == ubicacion_norm)
+        & (h["_tipo_norm"] == tipo_norm)
+    ]
+
+    origen_historico = "equipo"
+
+    # =========================
+    # 2. FALLBACK REGIONAL
+    # =========================
+    if len(mismo_equipo) < 14:
+
+        mismo_equipo = h[
+            (h["_region_norm"] == region_norm)
+            & (h["_tipo_norm"] == tipo_norm)
+        ]
+
+        origen_historico = "region_tipo"
+
+    # =========================
+    # 3. FALLBACK GLOBAL
+    # =========================
+    if len(mismo_equipo) < 30:
+
+        mismo_equipo = h.copy()
+
+        origen_historico = "global"
+
+    # =========================
+    # MISMO MES
+    # =========================
+    mismo_mes = mismo_equipo[
+        mismo_equipo["_mes"] == mes
+    ]
+
+    # Si hay muy pocos datos del mes,
+    # usamos todo el histórico seleccionado
+    if len(mismo_mes) >= 5:
+        muestra = mismo_mes
+    else:
+        muestra = mismo_equipo
+
+    # =========================
+    # VARIABLES HVAC
+    # =========================
+    y1_hist = pd.to_numeric(
+        muestra["Y1"],
+        errors="coerce"
+    ).dropna()
+
+    tc_hist = pd.to_numeric(
+        muestra["TC"],
+        errors="coerce"
+    ).dropna()
+
+    # Predicción histórica robusta:
+    # utilizamos mediana para evitar outliers.
+    y1_estimado = (
+        y1_hist.median()
+        if not y1_hist.empty
+        else None
+    )
+
+    tc_estimado = (
+        tc_hist.median()
+        if not tc_hist.empty
+        else None
+    )
+
+    # =========================
+    # REFERENCIA HISTÓRICA
+    # =========================
+    y1_ref = pd.to_numeric(
+        mismo_equipo["Y1"],
+        errors="coerce"
+    ).dropna()
+
+    tc_ref = pd.to_numeric(
+        mismo_equipo["TC"],
+        errors="coerce"
+    ).dropna()
+
+    percentiles = []
+
+    if (
+        y1_estimado is not None
+        and not y1_ref.empty
+    ):
+        percentil_y1 = (
+            y1_ref <= y1_estimado
+        ).mean()
+
+        percentiles.append(percentil_y1)
+
+    if (
+        tc_estimado is not None
+        and not tc_ref.empty
+    ):
+        percentil_tc = (
+            tc_ref <= tc_estimado
+        ).mean()
+
+        percentiles.append(percentil_tc)
+
+    # =========================
+    # NIVEL TÉRMICO
+    # =========================
+    if percentiles:
+
+        indice_termico = sum(percentiles) / len(percentiles)
+
+    else:
+
+        # Caso extremo:
+        # no existe información histórica utilizable.
+        indice_termico = 0.5
+
+    if indice_termico < 0.33:
+
+        categoria = "Frio"
+        temperatura = 65.0
+
+    elif indice_termico <= 0.67:
+
+        categoria = "Templado"
+        temperatura = 73.0
+
+    else:
+
+        categoria = "Calor"
+        temperatura = 82.0
+
+    # =========================
+    # CREAR ESTRUCTURA HORARIA
+    # =========================
+
+    fecha_inicio = fecha.normalize()
+
+    tiempos = pd.date_range(
+        start=fecha_inicio,
+        periods=48,
+        freq="h"
+    )
+
+    temperaturas = [
+        temperatura
+        for _ in range(len(tiempos))
+    ]
+
+    clima = {
+        "hourly": {
+            "time": [
+                t.strftime("%Y-%m-%d %H:%M:%S")
+                for t in tiempos
+            ],
+            "apparent_temperature": temperaturas
+        },
+
+        "_origen": "historico_hvac",
+
+        "_detalle_historico": {
+            "nivel": origen_historico,
+            "categoria": categoria,
+            "indice_termico": round(
+                float(indice_termico),
+                3
+            ),
+            "y1_estimado": (
+                round(float(y1_estimado), 2)
+                if y1_estimado is not None
+                else None
+            ),
+            "tc_estimado": (
+                round(float(tc_estimado), 2)
+                if tc_estimado is not None
+                else None
+            ),
+            "registros_utilizados": len(muestra)
+        }
+    }
+
+    return clima
 
 # ==============================
 # 🗺️ MAPEO REGIÓN → GRUPO
@@ -306,33 +622,70 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
             lon = coords["lon"]
 
     try:
-
         # =========================
         # PRIMER INTENTO: OPEN-METEO
         # =========================
         try:
-            clima = obtener_clima(lat, lon, provider="openmeteo")
-            
-            if (
-                "hourly" not in clima
-                or "time" not in clima["hourly"]
-                or "apparent_temperature" not in clima["hourly"]
-            ):
-                raise ValueError("Respuesta inválida de Open-Meteo")
 
-        except Exception as e:
-            console.print(
-                f"[yellow]Open-Meteo falló ({e}), intentando WeatherAPI...[/yellow]"
+            clima = obtener_clima(
+                lat,
+                lon,
+                provider="openmeteo"
             )
 
-            clima = obtener_clima(lat, lon, provider="weatherapi")
+            if not clima_valido(clima):
+                raise ValueError(
+                    "Respuesta inválida o vacía de Open-Meteo"
+                )
 
-            if (
-                "hourly" not in clima
-                or "time" not in clima["hourly"]
-                or "apparent_temperature" not in clima["hourly"]
-            ):
-                raise ValueError("Respuesta inválida de WeatherAPI")
+            clima["_origen"] = "openmeteo"
+
+        except Exception as e:
+
+            console.print(
+                f"[yellow]Open-Meteo falló ({e}), "
+                f"intentando WeatherAPI...[/yellow]"
+            )
+            # =========================
+            # SEGUNDO INTENTO: WEATHERAPI
+            # =========================
+            try:
+
+                clima = obtener_clima(
+                    lat,
+                    lon,
+                    provider="weatherapi"
+                )
+
+                if not clima_valido(clima):
+                    raise ValueError(
+                        "Respuesta inválida o vacía de WeatherAPI"
+                    )
+
+                clima["_origen"] = "weatherapi"
+
+            except Exception as e:
+
+                console.print(
+                    f"[yellow]WeatherAPI falló ({e}), "
+                    f"utilizando histórico HVAC...[/yellow]"
+                )
+
+                # =========================
+                # TERCER INTENTO:
+                # HISTÓRICO HVAC
+                # =========================
+                clima = obtener_clima_historico(data)
+
+                if not clima_valido(clima):
+                    raise ValueError(
+                        "No fue posible generar clima histórico válido"
+                    )
+                
+        resultado["origen_clima"] = clima.get(
+            "_origen",
+            "Parquet"
+        )
 
         # =========================
         # PROCESAMIENTO NORMAL
