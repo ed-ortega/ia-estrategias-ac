@@ -400,9 +400,9 @@ def _resumir_motivo(resultado, data_original, grupo, limite_alto):
                 elif original > max_v:
                     cambios.append(f"Sin cambios: {nombre} arriba del límite máximo")
                 else:
-                    cambios.append(f"Cumple con estrategia")
+                    cambios.append(f"Sin cambios: Cumple con estrategia")
             else:
-                cambios.append(f"No cumple con algoritmo")
+                cambios.append(f"Sin cambios: No cumple con algoritmo")
         else:
             if original is None:
                 cambios.append(f"{nombre} sin valor previo")
