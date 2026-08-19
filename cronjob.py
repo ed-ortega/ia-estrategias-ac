@@ -13,6 +13,7 @@ from rich.progress import track
 from src.api.gsepro import GSEClient
 from src.database.dbPosgres import get_connection
 from psycopg2.extras import execute_values
+import math
 
 console = Console()
 
@@ -66,6 +67,19 @@ def clean_value(value):
 def clean_int(value):
     value = clean_value(value)
     return int(value) if value is not None else None
+
+def redondear_valor(valor):
+    if valor is None:
+        return None
+
+    decimal = valor - math.floor(valor)
+
+    if decimal <= 0.5:
+        return math.floor(valor)
+
+    return math.ceil(valor)
+
+
 # Entrenar conocimiento con los ultimos datos
 ejecutar_entrenamiento()
 
@@ -190,19 +204,16 @@ if __name__ == "__main__":
                 }
 
                 if sensor == "SP":
-                    resultado_sensor["SP"] = (
-                        ajustado.get(sensor, {}).get("SP", "")
-                    )
+                    valor = ajustado.get(sensor, {}).get("SP")
+                    resultado_sensor["SP"] = redondear_valor(valor)
 
                 elif sensor == "SPD1":
-                    resultado_sensor["SPD01"] = (
-                        ajustado.get(sensor, {}).get("SPD01", "")
-                    )
+                    valor = ajustado.get(sensor, {}).get("SPD01")
+                    resultado_sensor["SPD01"] = redondear_valor(valor)
 
                 elif sensor == "SPD2":
-                    resultado_sensor["SPD02"] = (
-                        ajustado.get(sensor, {}).get("SPD02", "")
-                    )
+                    valor = ajustado.get(sensor, {}).get("SPD02")
+                    resultado_sensor["SPD02"] = redondear_valor(valor)
 
                 resultado_final[sensor] = resultado_sensor
 
