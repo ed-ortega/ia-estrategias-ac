@@ -302,7 +302,7 @@ if __name__ == "__main__":
                 "resultado_banday1": clean_value(resultado_final.get("BandaY1")),
                 "resultado_banday2": clean_value(resultado_final.get("BandaY2")),
             }
-            
+
             resultados.append(clean_data)
 
         except Exception as e:

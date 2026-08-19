@@ -380,10 +380,10 @@ def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: s
         return None, f"Delta {valor:+} lleva el valor a {nuevo:.2f} por debajo del mínimo {min_v} → no se aplica, se deja en blanco", algoritmo_tag
     if nuevo > max_v:
         if permitir_sobre_max:
-            return _safe_int(nuevo), f"Delta {valor:+} excede máximo {max_v} pero estatus='No enfria' → se aplica: {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}", algoritmo_tag
+            return float(f"{nuevo:.2f}"), f"Delta {valor:+} excede máximo {max_v} pero estatus='No enfria' → se aplica: {actual:.2f} -> {nuevo:.2f}", algoritmo_tag
         else:
             return None, f"Delta {valor:+} excede máximo {max_v} → no se aplica, se deja en blanco", algoritmo_tag
-    return _safe_int(nuevo), f"Aplicado delta {valor:+} → {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}", algoritmo_tag
+    return float(f"{nuevo:.2f}"), f"Aplicado delta {valor:+} → {actual:.2f} -> {nuevo:.2f}", algoritmo_tag
 
 def _resumir_motivo(resultado, data_original, grupo, limite_alto):
     """Genera un motivo descriptivo basado en los cambios aplicados."""
