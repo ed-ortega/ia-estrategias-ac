@@ -359,6 +359,39 @@ def obtener_clima_parquet(data: dict):
         muestra = muestra_base
 
 
+    # =====================================================
+    # RECUPERAR COORDENADAS DESDE EL HISTÓRICO PARQUET
+    # =====================================================
+    # Solo se utiliza cuando el registro original sigue
+    # sin coordenadas después de intentar sucursales vecinas.
+    if (
+        normalizar_coord(data.get("Latitud")) is None
+        or normalizar_coord(data.get("Longitud")) is None
+    ):
+
+        coordenadas_hist = muestra[
+            muestra["_lat"].notna()
+            & muestra["_lon"].notna()
+        ].copy()
+
+        if not coordenadas_hist.empty:
+
+            lat_hist = float(
+                coordenadas_hist["_lat"].median()
+            )
+
+            lon_hist = float(
+                coordenadas_hist["_lon"].median()
+            )
+
+            data["Latitud"] = lat_hist
+            data["Longitud"] = lon_hist
+
+            console.print(
+                f"[cyan]Coordenadas recuperadas desde Parquet: "
+                f"{lat_hist}, {lon_hist}[/cyan]"
+            )
+
     # Referencia usada después para percentiles
     mismo_equipo = muestra_base
 
@@ -901,13 +934,7 @@ def _horas_entre(inicio, fin) -> float:
 def clamp_pct(valor):
     return min(max(valor, 0), 100)
 
-ESTADOS_COORDS = {
-    "ciudad de mexico": {"lat": 19.4326, "lon": -99.1332},
-    "quintana roo": {"lat": 21.1631, "lon": -86.8023},
-    "yucatan": {"lat": 20.9674, "lon": -89.5926},
-    "morelos": {"lat": 18.9242, "lon": -99.2216},
-    "jalisco": {"lat": 16.43033, "lon": -91.97499},
-}
+
 
 def normalizar_estado(nombre):
     if not nombre:
@@ -944,12 +971,94 @@ def normalizar_coord(valor):
     except:
         return None
 
+def obtener_coordenadas_vecinas(data: dict):
+
+    estado = data.get("Estado")
+    ciudad = data.get("Ciudad")
+
+    if not estado or not ciudad:
+        return None, None
+
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            SELECT
+                latitud,
+                longitud
+            FROM public.estrategias
+            WHERE latitud IS NOT NULL
+              AND longitud IS NOT NULL
+              AND LOWER(TRIM(estado)) = LOWER(TRIM(%s))
+              AND LOWER(TRIM(ciudad)) = LOWER(TRIM(%s))
+            ORDER BY fecha DESC
+            LIMIT 100
+            """,
+            (estado, ciudad)
+        )
+
+        filas = cursor.fetchall()
+
+    except Exception as e:
+
+        console.print(
+            f"[yellow]No se pudieron recuperar coordenadas "
+            f"vecinas ({e})[/yellow]"
+        )
+
+        return None, None
+
+    finally:
+
+        if cursor is not None:
+            cursor.close()
+
+        if conn is not None:
+            conn.close()
+
+    coordenadas = []
+
+    for lat, lon in filas:
+
+        lat = normalizar_coord(lat)
+        lon = normalizar_coord(lon)
+
+        if lat is not None and lon is not None:
+            coordenadas.append(
+                (lat, lon)
+            )
+
+    if not coordenadas:
+        return None, None
+
+    latitudes = [
+        c[0]
+        for c in coordenadas
+    ]
+
+    longitudes = [
+        c[1]
+        for c in coordenadas
+    ]
+
+    lat = float(pd.Series(latitudes).median())
+    lon = float(pd.Series(longitudes).median())
+
+    return lat, lon
+
 def to_float(valor, default=0.0):
     if pd.isna(valor):
         return default
     return float(valor)
 
 def calcular_porcentajes_operacion(data: dict) -> dict:
+
+
 
     # =========================
     # 🔵 OPERACIÓN
@@ -993,91 +1102,126 @@ def calcular_porcentajes_operacion(data: dict) -> dict:
     # =========================
     # 🔴 CLIMA
     # =========================
-    def is_invalid(value):
-        return pd.isna(value)
+    lat = normalizar_coord(
+        data.get("Latitud")
+    )
 
-    lat = data.get("Latitud")
-    lon = data.get("Longitud")
+    lon = normalizar_coord(
+        data.get("Longitud")
+    )
 
-    if not pd.isna(lat):
-        lat = normalizar_coord(lat)
+    # Si faltan coordenadas, intentar recuperarlas
+    # de sucursales vecinas de la misma zona.
+    if lat is None or lon is None:
 
-    if not pd.isna(lon):
-        lon = normalizar_coord(lon)
+        lat_vecina, lon_vecina = obtener_coordenadas_vecinas(
+            data
+        )
 
-    # fallback por estado
-    if is_invalid(lat) or is_invalid(lon):
-        estado = normalizar_estado(data.get("Estado"))
-        coords = ESTADOS_COORDS.get(estado)
+        if (
+            lat_vecina is not None
+            and lon_vecina is not None
+        ):
+            lat = lat_vecina
+            lon = lon_vecina
 
-        if coords:
-            lat = coords["lat"]
-            lon = coords["lon"]
+            # Guardar las coordenadas recuperadas
+            # para que también aparezcan en el resultado.
+            data["Latitud"] = lat
+            data["Longitud"] = lon
+
+            console.print(
+                f"[cyan]Coordenadas recuperadas: "
+                f"{lat}, {lon}[/cyan]"
+            )
 
     try:
-        # =========================
-        # PRIMER INTENTO: OPEN-METEO
-        # =========================
-        try:
 
-            clima = obtener_clima(
-                lat,
-                lon,
-                provider="openmeteo"
+        # =====================================
+        # SIN COORDENADAS → PARQUET DIRECTO
+        # =====================================
+        if lat is None or lon is None:
+
+            console.print(
+                "[yellow]Sin coordenadas disponibles, "
+                "utilizando parquet...[/yellow]"
             )
+
+            clima = obtener_clima_parquet(data)
 
             if not clima_valido(clima):
                 raise ValueError(
-                    "Respuesta inválida o vacía de Open-Meteo"
+                    "No fue posible generar clima válido desde parquet"
                 )
 
-            clima["_origen"] = "openmeteo"
+        # =====================================
+        # CON COORDENADAS → APIs
+        # =====================================
+        else:
 
-        except Exception as e:
-
-            console.print(
-                f"[yellow]Open-Meteo falló ({e}), "
-                f"intentando WeatherAPI...[/yellow]"
-            )
             # =========================
-            # SEGUNDO INTENTO: WEATHERAPI
+            # PRIMER INTENTO: OPEN-METEO
             # =========================
             try:
 
                 clima = obtener_clima(
                     lat,
                     lon,
-                    provider="weatherapi"
+                    provider="openmeteo"
                 )
 
                 if not clima_valido(clima):
                     raise ValueError(
-                        "Respuesta inválida o vacía de WeatherAPI"
+                        "Respuesta inválida o vacía de Open-Meteo"
                     )
 
-                clima["_origen"] = "weatherapi"
+                clima["_origen"] = "openmeteo"
 
             except Exception as e:
 
                 console.print(
-                    f"[yellow]WeatherAPI falló ({e}), "
-                    f"utilizando histórico HVAC...[/yellow]"
+                    f"[yellow]Open-Meteo falló ({e}), "
+                    f"intentando WeatherAPI...[/yellow]"
                 )
 
                 # =========================
-                # TERCER INTENTO:
-                # HISTÓRICO HVAC
+                # SEGUNDO INTENTO: WEATHERAPI
                 # =========================
-                clima = obtener_clima_historico(data)
+                try:
 
-                if not clima_valido(clima):
-                    raise ValueError(
-                        "No fue posible generar clima histórico válido"
+                    clima = obtener_clima(
+                        lat,
+                        lon,
+                        provider="weatherapi"
                     )
-                
+
+                    if not clima_valido(clima):
+                        raise ValueError(
+                            "Respuesta inválida o vacía de WeatherAPI"
+                        )
+
+                    clima["_origen"] = "weatherapi"
+
+                except Exception as e:
+
+                    console.print(
+                        f"[yellow]WeatherAPI falló ({e}), "
+                        f"utilizando parquet...[/yellow]"
+                    )
+
+                    # =========================
+                    # TERCER INTENTO: PARQUET
+                    # =========================
+                    clima = obtener_clima_parquet(data)
+
+                    if not clima_valido(clima):
+                        raise ValueError(
+                            "No fue posible generar clima válido desde parquet"
+                        )
+
         resultado["origen_clima"] = clima.get(
             "_origen",
-            "Parquet"
+            "historico_hvac"
         )
 
         # =========================
@@ -1378,7 +1522,7 @@ def aplicar_reglas_hvac(data: dict, prediccion: dict) -> dict:
     queja   = evaluar_queja(data)
 
     resultado = dict(prediccion)  # copia de la predicción normalizada
-    SIN_AJUSTE = "Sin cambios"
+    SIN_AJUSTE = "Sin ajuste"
     motivo    = SIN_AJUSTE
 
     if estatus == "Sin control GSE":
