@@ -1,8 +1,6 @@
 import math
 import re
 
-SIN_AJUSTE = "Sin ajuste"
-
 RANGOS: dict[str, dict[bool, dict[str, tuple[int, int]]]] = {
     "NL": {
         True:  {"SP": (70, 73), "SPD01": (71, 76), "SPD02": (71, 75)},
@@ -380,10 +378,10 @@ def _aplicar_instruccion(campo: str, instruccion, actual: float | None, grupo: s
         return None, f"Delta {valor:+} lleva el valor a {nuevo:.2f} por debajo del mínimo {min_v} → no se aplica, se deja en blanco", algoritmo_tag
     if nuevo > max_v:
         if permitir_sobre_max:
-            return _safe_int(nuevo), f"Delta {valor:+} excede máximo {max_v} pero estatus='No enfria' → se aplica: {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}", algoritmo_tag
+            return float(f"{nuevo:.2f}"), f"Delta {valor:+} excede máximo {max_v} pero estatus='No enfria' → se aplica: {actual:.2f} -> {nuevo:.2f}", algoritmo_tag
         else:
             return None, f"Delta {valor:+} excede máximo {max_v} → no se aplica, se deja en blanco", algoritmo_tag
-    return _safe_int(nuevo), f"Aplicado delta {valor:+} → {actual:.2f} -> {nuevo:.2f} -> {_safe_int(nuevo)}", algoritmo_tag
+    return float(f"{nuevo:.2f}"), f"Aplicado delta {valor:+} → {actual:.2f} -> {nuevo:.2f}", algoritmo_tag
 
 def _resumir_motivo(resultado, data_original, grupo, limite_alto):
     """Genera un motivo descriptivo basado en los cambios aplicados."""
@@ -396,13 +394,13 @@ def _resumir_motivo(resultado, data_original, grupo, limite_alto):
             if original is not None:
                 min_v, max_v = rangos.get(campo, (70, 77))
                 if original < min_v:
-                    cambios.append(f"{nombre} debajo del mínimo")
+                    cambios.append(f"Sin cambios: {nombre} debajo del límite mínimo")
                 elif original > max_v:
-                    cambios.append(f"{nombre} arriba del máximo y no aplicaba para cambio")
+                    cambios.append(f"Sin cambios: {nombre} arriba del límite máximo")
                 else:
-                    cambios.append(f"{nombre} sin cambios")
+                    cambios.append(f"Sin cambios: Cumple con estrategia")
             else:
-                cambios.append(f"{nombre} sin cambios")
+                cambios.append(f"Sin cambios: No cumple con algoritmo")
         else:
             if original is None:
                 cambios.append(f"{nombre} sin valor previo")

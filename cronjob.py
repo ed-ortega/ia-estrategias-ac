@@ -13,6 +13,7 @@ from rich.progress import track
 from src.api.gsepro import GSEClient
 from src.database.dbPosgres import get_connection
 from psycopg2.extras import execute_values
+import math
 
 console = Console()
 
@@ -66,6 +67,19 @@ def clean_value(value):
 def clean_int(value):
     value = clean_value(value)
     return int(value) if value is not None else None
+
+def redondear_valor(valor):
+    if valor is None:
+        return None
+
+    decimal = valor - math.floor(valor)
+
+    if decimal <= 0.5:
+        return math.floor(valor)
+
+    return math.ceil(valor)
+
+
 # Entrenar conocimiento con los ultimos datos
 ejecutar_entrenamiento()
 
@@ -114,7 +128,7 @@ if __name__ == "__main__":
     console.print(f"✅ Registros encontrados: {len(df)}\n")
 
     resultados = []
-
+    equipos_excluidos = 0
     # ==============================
     # 🔁 RECORRER EQUIPOS
     # ==============================
@@ -123,7 +137,15 @@ if __name__ == "__main__":
         try:
 
             prompt = row.to_dict()
+            # ==============================
+            # EQUIPOS EXCLUIDOS
+            # ==============================
+            tecnologia = str(prompt.get("Tecnologia", "")).strip().lower()
 
+            if tecnologia in ("sensibo", "n/a"):
+                equipos_excluidos += 1
+                continue
+            
             prompt = completar_prompt(prompt)
 
             # ==============================
@@ -182,19 +204,16 @@ if __name__ == "__main__":
                 }
 
                 if sensor == "SP":
-                    resultado_sensor["SP"] = (
-                        ajustado.get(sensor, {}).get("SP", "")
-                    )
+                    valor = ajustado.get(sensor, {}).get("SP")
+                    resultado_sensor["SP"] = redondear_valor(valor)
 
                 elif sensor == "SPD1":
-                    resultado_sensor["SPD01"] = (
-                        ajustado.get(sensor, {}).get("SPD01", "")
-                    )
+                    valor = ajustado.get(sensor, {}).get("SPD01")
+                    resultado_sensor["SPD01"] = redondear_valor(valor)
 
                 elif sensor == "SPD2":
-                    resultado_sensor["SPD02"] = (
-                        ajustado.get(sensor, {}).get("SPD02", "")
-                    )
+                    valor = ajustado.get(sensor, {}).get("SPD02")
+                    resultado_sensor["SPD02"] = redondear_valor(valor)
 
                 resultado_final[sensor] = resultado_sensor
 
@@ -294,7 +313,7 @@ if __name__ == "__main__":
                 "resultado_banday1": clean_value(resultado_final.get("BandaY1")),
                 "resultado_banday2": clean_value(resultado_final.get("BandaY2")),
             }
-            
+
             resultados.append(clean_data)
 
         except Exception as e:
@@ -405,6 +424,7 @@ if __name__ == "__main__":
     conn.commit()
 
     print(f"✅ {len(valores)} registros insertados")
-
+    console.log(f"{equipos_excluidos} equipos excluidos")
+    console.log(f"Total procesado: {equipos_excluidos + len(valores)}")
     cursor.close()
     conn.close()
