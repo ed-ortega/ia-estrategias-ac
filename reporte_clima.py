@@ -50,13 +50,21 @@ for _, row in df.iterrows():
 
         "Fuente": nombres.get(origen, origen),
 
+        "Estrategia SP": row.get("estrategia_sp"),
+        "Estrategia SPD1": row.get("estrategia_spd1"),
+        "Estrategia SPD2": row.get("estrategia_spd2"),
+        
+        "Motivo SP": row.get("motivo_sp"),
+        "Motivo SPD1": row.get("motivo_spd1"),
+        "Motivo SPD2": row.get("motivo_spd2"),
+
         "Clima SP": sp.get("clima"),
         "Clima SPD1": spd1.get("clima"),
         "Clima SPD2": spd2.get("clima"),
 
         "SP": sp.get("temp_prom"),
         "SPD1": spd1.get("temp_prom"),
-        "SPD2": spd2.get("temp_prom"),
+        "SPD2": spd2.get("temp_prom"), 
     })
 
 

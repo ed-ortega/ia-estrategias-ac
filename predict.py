@@ -51,6 +51,15 @@ def completar_prompt(data):
 
     return data
 
+def obtener_motivo(ajustado, sensor, indice):
+
+    motivo = ajustado.get(sensor, {}).get("motivo", "")
+
+    if isinstance(motivo, list):
+        return motivo[indice] if len(motivo) > indice else ""
+
+    return motivo
+
 
 # ==============================
 # 🚀 MAIN
@@ -148,6 +157,21 @@ if __name__ == "__main__":
                 .get("resultados_ia", {})
             )
 
+            estrategia_sp = (
+                ajustado.get("SP", {})
+                .get("algoritmo_tag_SP", "")
+            )
+
+            estrategia_spd1 = (
+                ajustado.get("SPD1", {})
+                .get("algoritmo_tag_SPD1", "")
+            )
+
+            estrategia_spd2 = (
+                ajustado.get("SPD2", {})
+                .get("algoritmo_tag_SPD2", "")
+            )
+
             resultado_final = {
                 "estado": estado,
                 "queja": queja,
@@ -191,6 +215,29 @@ if __name__ == "__main__":
 
             resultados.append({
                 **prompt,
+
+                "estrategia_sp": estrategia_sp,
+                "estrategia_spd1": estrategia_spd1,
+                "estrategia_spd2": estrategia_spd2,
+
+                "motivo_sp": obtener_motivo(
+                    ajustado,
+                    "SP",
+                    0
+                ),
+
+                "motivo_spd1": obtener_motivo(
+                    ajustado,
+                    "SPD1",
+                    1
+                ),
+
+                "motivo_spd2": obtener_motivo(
+                    ajustado,
+                    "SPD2",
+                    2
+                ),
+
                 "resultado": json.dumps(
                     resultado_final,
                     ensure_ascii=False

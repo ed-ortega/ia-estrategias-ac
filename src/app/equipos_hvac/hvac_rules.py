@@ -9,6 +9,7 @@ import unicodedata
 from .templado import clima_templado
 from .calor import clima_calido
 from .frio import clima_frio
+from ...database.dbPosgres import get_connection
 
 def cargar_quejas_api() -> pd.DataFrame:
     URL = "https://an-5dd0c5c60d33470a8a883871ce404f2b.ecs.us-east-1.on.aws/ml/quejas"
@@ -110,6 +111,21 @@ def cargar_historico_hvac():
     )   
 
     df["_mes"] = df["Fecha"].dt.month
+
+    # Coordenadas numéricas para búsqueda de tiendas cercanas
+    df["_lat"] = pd.to_numeric(
+        df["Latitud"],
+        errors="coerce"
+    )
+
+    df["_lon"] = pd.to_numeric(
+        df["Longitud"],
+        errors="coerce"
+    )
+
+    # Algunas coordenadas pueden venir multiplicadas
+    df.loc[df["_lat"].abs() > 1000, "_lat"] /= 1_000_000
+    df.loc[df["_lon"].abs() > 1000, "_lon"] /= 1_000_000
     
     _HVAC_HISTORICO = df
 
@@ -147,7 +163,46 @@ def clima_valido(clima):
 
     return True
 
-def obtener_clima_historico(data: dict):
+def distancia_km(lat1, lon1, lat2, lon2):
+    """
+    Distancia aproximada entre dos coordenadas
+    usando la fórmula de Haversine.
+    """
+
+    try:
+        lat1 = float(lat1)
+        lon1 = float(lon1)
+        lat2 = float(lat2)
+        lon2 = float(lon2)
+    except (TypeError, ValueError):
+        return float("inf")
+
+    radio_tierra = 6371.0
+
+    lat1 = math.radians(lat1)
+    lon1 = math.radians(lon1)
+    lat2 = math.radians(lat2)
+    lon2 = math.radians(lon2)
+
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1)
+        * math.cos(lat2)
+        * math.sin(dlon / 2) ** 2
+    )
+
+    c = 2 * math.atan2(
+        math.sqrt(a),
+        math.sqrt(1 - a)
+    )
+
+    return radio_tierra * c
+
+def obtener_clima_parquet(data: dict):
+
 
     historico = cargar_historico_hvac()
 
@@ -190,50 +245,122 @@ def obtener_clima_historico(data: dict):
     h = historico
 
     # =========================
-    # 1. MISMO EQUIPO FÍSICO
+    # SELECCIÓN DEL HISTÓRICO
     # =========================
-    mismo_equipo = h[
-        (h["Idvbox"] == idvbox)
-        & (h["_ubicacion_norm"] == ubicacion_norm)
-        & (h["_tipo_norm"] == tipo_norm)
-    ]
 
-    origen_historico = "equipo"
+    lat = normalizar_coord(data.get("Latitud"))
+    lon = normalizar_coord(data.get("Longitud"))
 
-    # =========================
-    # 2. FALLBACK REGIONAL
-    # =========================
-    if len(mismo_equipo) < 14:
+    muestra_base = pd.DataFrame()
+    origen_historico = "sin_datos"
+
+    # =====================================================
+    # 1. PRIORIDAD: TIENDAS CERCANAS POR LATITUD / LONGITUD
+    # =====================================================
+    if lat is not None and lon is not None:
+
+        cercanos = h[
+            h["_lat"].notna()
+            & h["_lon"].notna()
+            & (h["_tipo_norm"] == tipo_norm)
+        ].copy()
+
+        if not cercanos.empty:
+
+            cercanos["_distancia_km"] = cercanos.apply(
+                lambda fila: distancia_km(
+                    lat,
+                    lon,
+                    fila["_lat"],
+                    fila["_lon"]
+                ),
+                axis=1
+            )
+
+            # Evitamos usar exactamente la misma ubicación
+            # como único punto de referencia.
+            cercanos = cercanos[
+                cercanos["_distancia_km"] > 0.05
+            ]
+
+            # Primero buscamos dentro de 25 km
+            vecinos_25 = cercanos[
+                cercanos["_distancia_km"] <= 25
+            ].sort_values("_distancia_km")
+
+            if len(vecinos_25) >= 5:
+                muestra_base = vecinos_25
+                origen_historico = "tiendas_cercanas_25km"
+
+            else:
+                # Si no hay suficientes, ampliamos a 50 km
+                vecinos_50 = cercanos[
+                    cercanos["_distancia_km"] <= 50
+                ].sort_values("_distancia_km")
+
+                if len(vecinos_50) >= 5:
+                    muestra_base = vecinos_50
+                    origen_historico = "tiendas_cercanas_50km"
+
+
+    # =====================================================
+    # 2. FALLBACK: MISMO EQUIPO FÍSICO
+    # =====================================================
+    if muestra_base.empty:
 
         mismo_equipo = h[
+            (h["Idvbox"] == idvbox)
+            & (h["_ubicacion_norm"] == ubicacion_norm)
+            & (h["_tipo_norm"] == tipo_norm)
+        ]
+
+        if not mismo_equipo.empty:
+            muestra_base = mismo_equipo
+            origen_historico = "equipo"
+
+
+    # =====================================================
+    # 3. FALLBACK: MISMA REGIÓN + TIPO HVAC
+    # =====================================================
+    if muestra_base.empty:
+
+        regional = h[
             (h["_region_norm"] == region_norm)
             & (h["_tipo_norm"] == tipo_norm)
         ]
 
-        origen_historico = "region_tipo"
+        if not regional.empty:
+            muestra_base = regional
+            origen_historico = "region_tipo"
 
-    # =========================
-    # 3. FALLBACK GLOBAL
-    # =========================
-    if len(mismo_equipo) < 30:
 
-        mismo_equipo = h.copy()
+    # =====================================================
+    # 4. ÚLTIMO FALLBACK: MISMO TIPO HVAC
+    # =====================================================
+    if muestra_base.empty:
 
-        origen_historico = "global"
+        muestra_base = h[
+            h["_tipo_norm"] == tipo_norm
+        ]
 
-    # =========================
-    # MISMO MES
-    # =========================
-    mismo_mes = mismo_equipo[
-        mismo_equipo["_mes"] == mes
+        origen_historico = "tipo_hvac"
+
+
+    # =====================================================
+    # PRIORIZAR MISMO MES
+    # =====================================================
+    mismo_mes = muestra_base[
+        muestra_base["_mes"] == mes
     ]
 
-    # Si hay muy pocos datos del mes,
-    # usamos todo el histórico seleccionado
     if len(mismo_mes) >= 5:
         muestra = mismo_mes
     else:
-        muestra = mismo_equipo
+        muestra = muestra_base
+
+
+    # Referencia usada después para percentiles
+    mismo_equipo = muestra_base
 
     # =========================
     # VARIABLES HVAC
@@ -310,23 +437,48 @@ def obtener_clima_historico(data: dict):
         # no existe información histórica utilizable.
         indice_termico = 0.5
 
+    # =========================
+    # TEMPERATURA CONTINUA
+    # =========================
+
+    # En lugar de asignar únicamente
+    # 65, 73 u 82 °F, interpolamos
+    # una temperatura según el índice.
+
     if indice_termico < 0.33:
 
         categoria = "Frio"
-        temperatura = 65.0
+
+        temperatura = (
+            62
+            + (indice_termico / 0.33) * 6
+        )
 
     elif indice_termico <= 0.67:
-
+    
         categoria = "Templado"
-        temperatura = 73.0
+
+        temperatura = (
+            68
+            + ((indice_termico - 0.33) / 0.34) * 10
+        )
 
     else:
-
+    
         categoria = "Calor"
-        temperatura = 82.0
+
+        temperatura = (
+        78
+            + ((indice_termico - 0.67) / 0.33) * 8
+        )
+
+    temperatura = round(
+        float(temperatura),
+        2
+    )
 
     # =========================
-    # CREAR ESTRUCTURA HORARIA
+    # CREAR PERFIL HORARIO
     # =========================
 
     fecha_inicio = fecha.normalize()
@@ -337,11 +489,39 @@ def obtener_clima_historico(data: dict):
         freq="h"
     )
 
-    temperaturas = [
-        temperatura
-        for _ in range(len(tiempos))
-    ]
+    temperaturas = []
 
+    for t in tiempos:
+
+        hora = t.hour
+
+        # SPD1: madrugada
+        if 0 <= hora <= 6:
+            ajuste = -4.0
+
+        # transición mañana
+        elif 7 <= hora <= 10:
+            ajuste = -1.0
+
+        # SP: periodo más cálido
+        elif 11 <= hora <= 17:
+            ajuste = 3.0
+
+        # transición tarde
+        elif 18 <= hora <= 20:
+            ajuste = 1.0
+
+        # SPD2: noche
+        else:
+            ajuste = -2.0
+
+        temperaturas.append(
+            round(temperatura + ajuste, 2)
+        )
+
+    # =========================
+    # ESTRUCTURA COMPATIBLE
+    # =========================
     clima = {
         "hourly": {
             "time": [
@@ -375,6 +555,219 @@ def obtener_clima_historico(data: dict):
     }
 
     return clima
+
+def obtener_clima_historico(data: dict):
+
+    lat = normalizar_coord(data.get("Latitud"))
+    lon = normalizar_coord(data.get("Longitud"))
+
+    # Sin coordenadas no podemos buscar tiendas cercanas
+    if lat is None or lon is None:
+        return obtener_clima_parquet(data)
+
+    conn = None
+
+    try:
+        conn = get_connection()
+
+        query = """
+            SELECT
+                sucursal,
+                ubicacion,
+                tecnologia,
+                estado,
+                ciudad,
+                latitud,
+                longitud,
+                tipo_hvac,
+                temp_prom_sp,
+                temp_prom_spd1,
+                temp_prom_spd2
+            FROM public.estrategias
+            WHERE latitud IS NOT NULL
+              AND longitud IS NOT NULL
+              AND temp_prom_sp IS NOT NULL
+              AND temp_prom_spd1 IS NOT NULL
+              AND temp_prom_spd2 IS NOT NULL
+              AND fecha >= CURRENT_DATE - INTERVAL '60 days'
+        """
+
+        vecinos = pd.read_sql_query(
+            query,
+            conn
+        )
+
+    except Exception as e:
+
+        console.print(
+            f"[yellow]No se pudo consultar tiendas cercanas "
+            f"({e}), utilizando parquet...[/yellow]"
+        )
+
+        return obtener_clima_parquet(data)
+
+    finally:
+        if conn is not None:
+            conn.close()
+
+    if vecinos.empty:
+        return obtener_clima_parquet(data)
+
+    # Coordenadas válidas
+    vecinos["_lat"] = vecinos["latitud"].map(
+        normalizar_coord
+    )
+
+    vecinos["_lon"] = vecinos["longitud"].map(
+        normalizar_coord
+    )
+
+    vecinos = vecinos[
+        vecinos["_lat"].notna()
+        & vecinos["_lon"].notna()
+    ].copy()
+
+    if vecinos.empty:
+        return obtener_clima_parquet(data)
+
+    # Calcular distancia contra la tienda actual
+    vecinos["_distancia_km"] = vecinos.apply(
+        lambda fila: distancia_km(
+            lat,
+            lon,
+            fila["_lat"],
+            fila["_lon"]
+        ),
+        axis=1
+    )
+
+    # No usar exactamente la misma tienda
+    vecinos = vecinos[
+        vecinos["_distancia_km"] > 0.05
+    ]
+
+    # Primero buscar en 25 km
+    cercanos = vecinos[
+        vecinos["_distancia_km"] <= 25
+    ].copy()
+
+    radio = 25
+
+    # Si no hay suficientes, ampliar a 50 km
+    if len(cercanos) < 3:
+
+        cercanos = vecinos[
+            vecinos["_distancia_km"] <= 50
+        ].copy()
+
+        radio = 50
+
+    # Si tampoco hay suficientes,
+    # utilizar el parquet
+    if len(cercanos) < 3:
+        return obtener_clima_parquet(data)
+
+    # Una sola referencia por tienda/ubicación
+    cercanos = (
+        cercanos
+        .sort_values("_distancia_km")
+        .drop_duplicates(
+            subset=[
+                "sucursal",
+                "ubicacion"
+            ]
+        )
+        .head(20)
+    )
+
+    if len(cercanos) < 3:
+        return obtener_clima_parquet(data)
+
+    # Temperaturas reales de tiendas cercanas
+    temp_sp = pd.to_numeric(
+        cercanos["temp_prom_sp"],
+        errors="coerce"
+    ).median()
+
+    temp_spd1 = pd.to_numeric(
+        cercanos["temp_prom_spd1"],
+        errors="coerce"
+    ).median()
+
+    temp_spd2 = pd.to_numeric(
+        cercanos["temp_prom_spd2"],
+        errors="coerce"
+    ).median()
+
+    if (
+        pd.isna(temp_sp)
+        or pd.isna(temp_spd1)
+        or pd.isna(temp_spd2)
+    ):
+        return obtener_clima_parquet(data)
+
+    # SP debe ser el periodo más alto
+    temp_sp = max(
+        temp_sp,
+        temp_spd1,
+        temp_spd2
+    )
+
+    fecha = pd.to_datetime(
+        data.get("Fecha"),
+        errors="coerce"
+    )
+
+    if pd.isna(fecha):
+        fecha = pd.Timestamp.today()
+
+    tiempos = pd.date_range(
+        start=fecha.normalize(),
+        periods=48,
+        freq="h"
+    )
+
+    temperaturas = []
+
+    for t in tiempos:
+
+        hora = t.hour
+
+        # SPD1
+        if 0 <= hora <= 6:
+            temp = temp_spd1
+
+        # SPD2
+        elif 20 <= hora <= 23:
+            temp = temp_spd2
+
+        # SP
+        else:
+            temp = temp_sp
+
+        temperaturas.append(
+            round(float(temp), 2)
+        )
+
+    return {
+        "hourly": {
+            "time": [
+                t.strftime("%Y-%m-%d %H:%M:%S")
+                for t in tiempos
+            ],
+            "apparent_temperature": temperaturas
+        },
+
+        "_origen": "historico_hvac",
+
+        "_detalle_historico": {
+            "nivel": f"tiendas_cercanas_{radio}km",
+            "tiendas_utilizadas": len(cercanos),
+            "temp_sp": round(float(temp_sp), 2),
+            "temp_spd1": round(float(temp_spd1), 2),
+            "temp_spd2": round(float(temp_spd2), 2)
+        }
+    }
 
 # ==============================
 # 🗺️ MAPEO REGIÓN → GRUPO
