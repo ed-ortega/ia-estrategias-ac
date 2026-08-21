@@ -1,9 +1,6 @@
 # templado.py
 import math
 import re
-import pandas as pd
-
-SIN_AJUSTE = "Sin ajuste"
 
 RANGOS: dict[str, dict[bool, dict[str, tuple[int, int]]]] = {
     "NL": {
@@ -199,7 +196,7 @@ REGLAS_TEMPLADO["BC"]["SPD01"].extend([
     (_cond_and(lambda c: c['queja'] == "Si", lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, '>', 50)), ("zt_spd01", +1.0, "BC-No enfria1")),
     (_cond_and(lambda c: c['queja'] == "No", lambda c: c['estatus'] == "No enfria",
-               lambda c: _pct_cmp(c, '<', 40)), ("zt_spd01", +1.0, "BC-No enfria2")),
+               lambda c: _pct_cmp(c, '>', 40)), ("zt_spd01", +1.0, "BC-No enfria2")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",
                lambda c: _pct_cmp(c, 'range', (10, 40))), (None, None, "BC-No enfria3")),
     (_cond_and(lambda c: c['estatus'] == "No enfria",

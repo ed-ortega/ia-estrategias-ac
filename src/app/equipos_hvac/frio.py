@@ -2,8 +2,6 @@
 import math
 import re
 
-SIN_AJUSTE = "Sin ajuste"
-
 RANGOS: dict[str, dict[bool, dict[str, tuple[int, int]]]] = {
     "NL": {
         True:  {"SP": (71, 74), "SPD01": (71, 77), "SPD02": (71, 76)},
