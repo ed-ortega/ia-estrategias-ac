@@ -69,6 +69,7 @@ def clean_int(value):
     return int(value) if value is not None else None
 
 def redondear_valor(valor):
+    valor = clean_value(valor)
     if valor is None:
         return None
 
