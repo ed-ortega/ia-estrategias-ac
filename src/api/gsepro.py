@@ -100,6 +100,7 @@ class GSEClient:
         fec_fin: str,
         id_region: int
     ):
+        import time
 
         self.ensure_token()
 
@@ -117,15 +118,30 @@ class GSEClient:
             "Authorization": f"Bearer {self.access_token}"
         }
 
-        r = requests.get(
-            url,
-            headers=headers,
-            params=params
-        )
+        max_reintentos = 5
 
-        r.raise_for_status()
-        
-        return r.json()
+        for intento in range(1, max_reintentos + 1):
+            try:
+                r = requests.get(
+                    url,
+                    headers=headers,
+                    params=params,
+                    timeout=60
+                )
+
+                r.raise_for_status()
+
+                return r.json()
+
+            except requests.RequestException as e:
+                print(
+                    f"Error API HVAC - intento {intento}/{max_reintentos}: {e}"
+                )
+
+                if intento < max_reintentos:
+                    time.sleep(10)
+
+        return []
     
     def clientes_regiones(self):
         self.ensure_token()
