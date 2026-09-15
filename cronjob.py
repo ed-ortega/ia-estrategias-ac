@@ -85,7 +85,7 @@ def redondear_valor(valor):
 ejecutar_entrenamiento()
 
 # Obtener datos un dia antes
-ayer = (date.today() - timedelta(days=10)).strftime("%Y-%m-%d")
+ayer = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
 # fecha de consulta de temp: ayer + 2
 
 if __name__ == "__main__":
