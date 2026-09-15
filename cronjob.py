@@ -69,6 +69,7 @@ def clean_int(value):
     return int(value) if value is not None else None
 
 def redondear_valor(valor):
+    valor = clean_value(valor)
     if valor is None:
         return None
 
@@ -85,6 +86,7 @@ ejecutar_entrenamiento()
 
 # Obtener datos un dia antes
 ayer = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+# fecha de consulta de temp: ayer + 2
 
 if __name__ == "__main__":
 
